@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inject Roster Data - AttendEase</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chip { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; white-space: nowrap; }
+        .chip-new     { background: rgba(16,185,129,.15); color: #34d399; }
+        .chip-skip    { background: rgba(148,163,184,.15); color: #94a3b8; }
+        .chip-invalid { background: rgba(239,68,68,.15);  color: #f87171; }
+        .chip-noname  { background: rgba(245,158,11,.15); color: #fbbf24; }
+        .step-num { width: 26px; height: 26px; border-radius: 9999px; display: inline-flex;
+                    align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+    </style>
+</head>
+<body class="bg-slate-900 min-h-screen flex flex-col pt-6 pb-10 px-4 sm:px-8 text-slate-200">
+<div class="max-w-6xl mx-auto w-full">
+
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-white">Inject Roster Data</h1>
+            <p class="text-sm text-slate-400 mt-1">
+                Upload or paste a list of people straight into a centre. Nothing is written until you press Inject.
+            </p>
+        </div>
+        <a href="/" class="text-sm font-semibold text-slate-300 hover:text-white border border-slate-700
+                  hover:border-slate-500 rounded-lg px-4 py-2 transition-all">&larr; Dashboard</a>
+    </div>
+
+    <!-- STEP 1 -------------------------------------------------------------->
+    <section class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-4">
+        <h2 class="font-bold text-white mb-4 flex items-center gap-2">
+            <span class="step-num bg-indigo-500 text-white">1</span> Where should this go?
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-400 mb-1">CENTRE</label>
+                <select id="centre" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm">
+                    <option value="">Loading…</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-400 mb-1">BATCH <span class="text-slate-600 font-normal">(optional)</span></label>
+                <select id="batch" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm">
+                    <option value="">— Centre level (no batch) —</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-400 mb-1">CATEGORY</label>
+                <div class="flex gap-2">
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="category" value="youth" class="peer sr-only" checked>
+                        <div class="text-center text-sm py-2 rounded-lg border border-slate-700 bg-slate-900
+                                    peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white">Youth</div>
+                    </label>
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="category" value="congregation" class="peer sr-only">
+                        <div class="text-center text-sm py-2 rounded-lg border border-slate-700 bg-slate-900
+                                    peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white">Congregation</div>
+                    </label>
+                </div>
+                <p id="catNote" class="text-[11px] text-slate-500 mt-1"></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- STEP 2 -------------------------------------------------------------->
+    <section class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-4">
+        <h2 class="font-bold text-white mb-4 flex items-center gap-2">
+            <span class="step-num bg-indigo-500 text-white">2</span> The data
+        </h2>
+        <div class="flex gap-2 mb-4">
+            <button data-mode="file"  class="modeTab px-4 py-2 rounded-lg text-sm font-semibold">Upload file</button>
+            <button data-mode="paste" class="modeTab px-4 py-2 rounded-lg text-sm font-semibold">Paste columns</button>
+        </div>
+
+        <div id="paneFile">
+            <input type="file" id="file" accept=".xlsx,.xls"
+                   class="block w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg
+                          file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white
+                          hover:file:bg-indigo-500 cursor-pointer">
+            <p class="text-xs text-slate-500 mt-2">.xlsx or .xls, up to 5 MB. The first row is treated as the header row.</p>
+            <label class="flex items-center gap-2 mt-3 text-xs text-slate-400 cursor-pointer">
+                <input type="checkbox" id="firstRowIsData" class="accent-indigo-500">
+                This sheet has NO heading row — treat the first row as a person
+            </label>
+        </div>
+
+        <div id="panePaste" class="hidden">
+            <p class="text-xs text-slate-500 mb-3">
+                Paste one whole column into each box. Every box you fill must have the same number of rows —
+                if they differ, injecting is blocked so a name can never be paired with the wrong number.
+            </p>
+            <div id="pasteBoxes" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+        </div>
+
+        <button id="previewBtn"
+                class="mt-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500
+                       text-white font-bold px-5 py-2.5 rounded-lg text-sm transition-all">
+            Preview
+        </button>
+    </section>
+
+    <!-- STEP 3 -------------------------------------------------------------->
+    <section id="previewSection" class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-4 hidden">
+        <h2 class="font-bold text-white mb-4 flex items-center gap-2">
+            <span class="step-num bg-indigo-500 text-white">3</span> Check the mapping
+        </h2>
+        <div id="errors" class="hidden mb-4 rounded-lg border border-red-500/40 bg-red-500/10 text-red-300 text-sm p-3"></div>
+        <div id="notes" class="hidden mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200 text-sm p-3"></div>
+        <div id="mapStrip" class="hidden mb-4"></div>
+        <div id="summary" class="text-sm text-slate-300 mb-3 font-semibold"></div>
+        <div class="overflow-auto border border-slate-700 rounded-lg" style="max-height:55vh">
+            <table class="w-full text-xs">
+                <thead class="bg-slate-900 sticky top-0"><tr id="tableHead"></tr></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- STEP 4 -------------------------------------------------------------->
+    <section id="injectSection" class="bg-slate-800 border border-slate-700 rounded-xl p-5 hidden">
+        <h2 class="font-bold text-white mb-4 flex items-center gap-2">
+            <span class="step-num bg-emerald-500 text-white">4</span> Inject
+        </h2>
+        <div id="result" class="hidden mb-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-sm p-3"></div>
+        <button id="injectBtn"
+                class="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500
+                       text-white font-bold px-6 py-3 rounded-lg transition-all">
+            Inject
+        </button>
+        <p class="text-xs text-slate-500 mt-2">
+            Existing people in this scope are skipped and never modified.
+        </p>
+    </section>
+
+</div>
+
+<script>
+(function () {
+    const $ = (id) => document.getElementById(id);
+    let FIELDS = ["mobile","name","address","occupation","rounds","remark"];
+    let LABELS = {mobile:"Number",name:"Name",address:"Address",occupation:"Occupation",rounds:"Rounds",remark:"Remark"};
+    let batchesForCentre = [];
+    let lastRows = [];
+    let mode = "file";
+    let lastHeaders = [];
+    let mapping = null;
+
+    // NOTE: dropdowns here are populated on load and on centre change ONLY.
+    // Never rebuild a <select>'s options on a timer — on Android WebView that
+    // dismisses the native picker mid-tap (the 2026-08-10 wrapper flicker).
+
+    function selectedCategory() {
+        const el = document.querySelector('input[name=category]:checked');
+        return el ? el.value : 'youth';
+    }
+    function setCategory(v) {
+        const el = document.querySelector(`input[name=category][value="${v}"]`);
+        if (el) el.checked = true;
+    }
+    function lockCategory(locked, note) {
+        document.querySelectorAll('input[name=category]').forEach(r => r.disabled = locked);
+        document.querySelectorAll('input[name=category]').forEach(r => {
+            r.parentElement.style.opacity = locked ? '0.6' : '1';
+            r.parentElement.style.pointerEvents = locked ? 'none' : 'auto';
+        });
+        $('catNote').textContent = note || '';
+    }
+
+    // ---- step 1 ----------------------------------------------------------
+    fetch('/api/centres').then(r => r.json()).then(list => {
+        const sel = $('centre');
+        sel.innerHTML = '<option value="">Select a centre…</option>';
+        (list || []).forEach(c => {
+            const o = document.createElement('option');
+            o.value = c.centre_id; o.textContent = c.name || c.centre_id;
+            sel.appendChild(o);
+        });
+    }).catch(() => { $('centre').innerHTML = '<option value="">Could not load centres</option>'; });
+
+    $('centre').addEventListener('change', function () {
+        const centreId = this.value;
+        const bsel = $('batch');
+        bsel.innerHTML = '<option value="">— Centre level (no batch) —</option>';
+        batchesForCentre = [];
+        lockCategory(false, 'Centre-level inject — pick the track these people belong to.');
+        if (!centreId) return;
+        fetch('/api/batches?centre_id=' + encodeURIComponent(centreId))
+            .then(r => r.json())
+            .then(list => {
+                batchesForCentre = list || [];
+                batchesForCentre.forEach(b => {
+                    const o = document.createElement('option');
+                    o.value = b.id;
+                    o.textContent = b.name + (b.category ? '  (' + b.category + ')' : '');
+                    bsel.appendChild(o);
+                });
+            }).catch(() => {});
+    });
+
+    $('batch').addEventListener('change', function () {
+        const b = batchesForCentre.find(x => String(x.id) === String(this.value));
+        if (b) {
+            if (b.category) setCategory(b.category);
+            lockCategory(true, 'Set from batch: ' + b.name);
+        } else {
+            lockCategory(false, 'Centre-level inject — pick the track these people belong to.');
+        }
+    });
+
+    // ---- step 2 ----------------------------------------------------------
+    FIELDS.forEach(f => {
+        const wrap = document.createElement('div');
+        wrap.innerHTML =
+            '<label class="block text-xs font-bold text-slate-400 mb-1">' + LABELS[f].toUpperCase() +
+            (f === 'mobile' ? ' <span class="text-red-400">*</span>' : '') + '</label>' +
+            '<textarea data-field="' + f + '" rows="6" placeholder="one per line"' +
+            ' class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono"></textarea>';
+        $('pasteBoxes').appendChild(wrap);
+    });
+
+    function setMode(m) {
+        mode = m;
+        $('paneFile').classList.toggle('hidden', m !== 'file');
+        $('panePaste').classList.toggle('hidden', m !== 'paste');
+        document.querySelectorAll('.modeTab').forEach(b => {
+            const on = b.dataset.mode === m;
+            b.className = 'modeTab px-4 py-2 rounded-lg text-sm font-semibold ' +
+                (on ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-700');
+        });
+    }
+    document.querySelectorAll('.modeTab').forEach(b =>
+        b.addEventListener('click', () => setMode(b.dataset.mode)));
+    setMode('file');
+
+    // ---- preview ---------------------------------------------------------
+    function showErrors(list) {
+        const box = $('errors');
+        if (!list || !list.length) { box.classList.add('hidden'); return; }
+        box.innerHTML = list.map(e => '<div>• ' + e + '</div>').join('');
+        box.classList.remove('hidden');
+    }
+
+    function renderNotes(analysis) {
+        const box = $('notes');
+        const notes = (analysis && analysis.notes) || [];
+        if (!notes.length) { box.classList.add('hidden'); return; }
+        box.innerHTML = '<div class="font-bold mb-1">Check the mapping before injecting</div>' +
+            notes.map(n => '<div>• ' + n + '</div>').join('');
+        box.classList.remove('hidden');
+    }
+
+    // Confidence drives the colour so a guess never looks like a certainty.
+    const CONF = {
+        exact:  { border: 'border-emerald-600/50', label: 'matched',    cls: 'text-emerald-400' },
+        manual: { border: 'border-sky-600/50',     label: 'you set it', cls: 'text-sky-400' },
+        likely: { border: 'border-amber-500/60',   label: 'guessed — check', cls: 'text-amber-400' },
+        none:   { border: 'border-slate-700',      label: 'not mapped', cls: 'text-slate-500' },
+    };
+
+    function renderMapStrip(headers, map, analysis) {
+        const strip = $('mapStrip');
+        if (!headers || !headers.length) { strip.classList.add('hidden'); return; }
+        strip.classList.remove('hidden');
+        const conf = (analysis && analysis.confidence) || {};
+
+        const cards = FIELDS.map(f => {
+            const c = CONF[conf[f] || (map && map[f] != null ? 'manual' : 'none')] || CONF.none;
+            const opts = ['<option value="">— not mapped —</option>'].concat(
+                headers.map((h, i) =>
+                    '<option value="' + i + '"' + (map && map[f] === i ? ' selected' : '') + '>' +
+                    'Col ' + (i + 1) + ': ' + (h || '(blank)') + '</option>')).join('');
+            return '<div class="bg-slate-900 border ' + c.border + ' rounded-lg px-3 py-2">' +
+                '<div class="text-[10px] font-bold text-slate-500">' + LABELS[f].toUpperCase() +
+                (f === 'mobile' ? ' <span class="text-red-400">*</span>' : '') + '</div>' +
+                '<select data-map="' + f + '" class="bg-transparent text-xs text-slate-200 mt-1 w-full">' + opts + '</select>' +
+                '<div class="text-[10px] mt-0.5 ' + c.cls + '">' + c.label + '</div>' +
+                '</div>';
+        }).join('');
+
+        const unmapped = (analysis && analysis.unmapped_columns) || [];
+        const unmappedHtml = unmapped.length
+            ? '<div class="text-[11px] text-slate-500 mt-2">Columns not being used: ' +
+              unmapped.map(u => '<span class="text-slate-400">"' + (u.header || '(blank)') + '"</span>').join(', ') +
+              ' — pick one in a dropdown above to bring it in.</div>'
+            : '';
+
+        strip.innerHTML =
+            '<div class="text-xs font-bold text-slate-400 mb-2">COLUMN MAPPING — change anything that looks wrong</div>' +
+            '<div class="grid grid-cols-2 md:grid-cols-6 gap-2">' + cards + '</div>' + unmappedHtml;
+
+        strip.querySelectorAll('select[data-map]').forEach(s =>
+            s.addEventListener('change', () => {
+                mapping = mapping || {};
+                mapping[s.dataset.map] = s.value === '' ? null : parseInt(s.value, 10);
+                doPreview();   // re-preview with the corrected mapping
+            }));
+    }
+
+    function renderTable(rows) {
+        const cols = ['#'].concat(FIELDS.map(f => LABELS[f])).concat(['Status']);
+        $('tableHead').innerHTML = cols.map(c =>
+            '<th class="text-left px-3 py-2 font-bold text-slate-400 border-b border-slate-700">' + c + '</th>').join('');
+
+        $('tableBody').innerHTML = rows.map((r, i) => {
+            let chip;
+            if (r.status === 'invalid') chip = '<span class="chip chip-invalid">' + (r.invalid_reason || 'INVALID') + '</span>';
+            else if (r.status === 'skip') chip = '<span class="chip chip-skip">ALREADY HERE — SKIP</span>';
+            else chip = '<span class="chip chip-new">NEW</span>' +
+                        (r.no_name ? ' <span class="chip chip-noname">NO NAME</span>' : '');
+            const cells = FIELDS.map(f => {
+                let v = r[f] || '';
+                if (f === 'mobile' && r.normalized_mobile) v = r.normalized_mobile;
+                return '<td class="px-3 py-1.5 border-b border-slate-800">' +
+                       String(v).replace(/[<>&]/g, s => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[s])) + '</td>';
+            }).join('');
+            return '<tr class="' + (r.status === 'invalid' ? 'opacity-50' : '') + '">' +
+                   '<td class="px-3 py-1.5 border-b border-slate-800 text-slate-600">' + (i + 1) + '</td>' +
+                   cells + '<td class="px-3 py-1.5 border-b border-slate-800">' + chip + '</td></tr>';
+        }).join('');
+    }
+
+    function doPreview() {
+        const centreId = $('centre').value;
+        if (!centreId) { alert('Pick a centre first.'); return; }
+        $('previewSection').classList.remove('hidden');
+
+        let req;
+        if (mode === 'file') {
+            const f = $('file').files[0];
+            if (!f) { alert('Choose a file first.'); return; }
+            const fd = new FormData();
+            fd.append('file', f);
+            fd.append('centre_id', centreId);
+            fd.append('batch_id', $('batch').value || '');
+            if ($('firstRowIsData').checked) fd.append('first_row_is_data', '1');
+            if (mapping) fd.append('mapping', JSON.stringify(mapping));
+            req = fetch('/api/inject/preview', { method: 'POST', body: fd });
+        } else {
+            const columns = {};
+            document.querySelectorAll('#pasteBoxes textarea').forEach(t => columns[t.dataset.field] = t.value);
+            req = fetch('/api/inject/preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ centre_id: centreId, batch_id: $('batch').value || null, columns })
+            });
+        }
+
+        req.then(r => r.json()).then(data => {
+            showErrors(data.errors);
+            if (data.fields) { FIELDS = data.fields; LABELS = data.field_labels || LABELS; }
+            lastHeaders = data.headers || [];
+            if (data.mapping) mapping = data.mapping;
+            renderNotes(data.analysis);
+            renderMapStrip(lastHeaders, mapping, data.analysis);
+
+            lastRows = data.rows || [];
+            renderTable(lastRows);
+
+            const s = data.summary;
+            if (s) {
+                const bits = [s.total + ' rows', s.new + ' new', s.already_here + ' already here'];
+                if (s.no_name)           bits.push(s.no_name + ' with no name');
+                if (s.duplicate_in_file) bits.push(s.duplicate_in_file + ' repeated in file');
+                if (s.invalid)           bits.push(s.invalid + ' invalid');
+                $('summary').textContent = bits.join('  ·  ');
+            } else { $('summary').textContent = ''; }
+
+            const canInject = !(data.errors || []).length && s && s.new > 0;
+            $('injectSection').classList.toggle('hidden', !s);
+            $('injectBtn').disabled = !canInject;
+            $('result').classList.add('hidden');
+        }).catch(e => showErrors(['Preview failed: ' + e]));
+    }
+    $('previewBtn').addEventListener('click', () => { mapping = null; doPreview(); });
+
+    // Toggling "no heading row" changes what the headers ARE, so any existing
+    // mapping is meaningless — drop it and re-guess from scratch.
+    $('firstRowIsData').addEventListener('change', () => {
+        mapping = null;
+        if ($('file').files[0]) doPreview();
+    });
+
+    // ---- commit ----------------------------------------------------------
+    $('injectBtn').addEventListener('click', function () {
+        this.disabled = true;
+        this.textContent = 'Injecting…';
+        fetch('/api/inject/commit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                centre_id: $('centre').value,
+                batch_id: $('batch').value || null,
+                category: selectedCategory(),
+                rows: lastRows.filter(r => r.status === 'new')
+            })
+        }).then(r => r.json()).then(d => {
+            this.textContent = 'Inject';
+            const box = $('result');
+            box.classList.remove('hidden');
+            if (d.error) {
+                box.className = 'mb-4 rounded-lg border border-red-500/40 bg-red-500/10 text-red-300 text-sm p-3';
+                box.textContent = d.error;
+                this.disabled = false;
+                return;
+            }
+            box.className = 'mb-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-sm p-3';
+            box.textContent = d.injected + ' injected into ' + d.centre_name +
+                (d.batch_name ? ' / ' + d.batch_name : ' (centre level)') +
+                '. ' + d.skipped + ' skipped. ' + d.invalid + ' invalid.';
+            doPreview();   // refresh so injected rows now read ALREADY HERE
+        }).catch(e => {
+            this.textContent = 'Inject';
+            this.disabled = false;
+            showErrors(['Inject failed: ' + e]);
+        });
+    });
+
+    lockCategory(false, 'Centre-level inject — pick the track these people belong to.');
+})();
+</script>
+</body>
+</html>

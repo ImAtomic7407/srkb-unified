@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SIDELOAD FLAVOUR ONLY.
+
+  These two entries are what make the in-app updater possible, and they are the two things
+  Google Play's Device and Network Abuse policy forbids in a Play-distributed build. Play scans
+  the MERGED manifest, so REQUEST_INSTALL_PACKAGES alone fails review even with no code path
+  reaching it. Keeping them in app/src/sideload/ instead of app/src/main/ means they merge into
+  the sideload APK and can never reach app-play-release.aab. build-play-bundle.ps1 asserts their
+  absence from the play merged manifest after every bundle, so this is checked, not just intended.
+
+  The provider authority resolves to com.example.fileprovider on this flavour, which is exactly
+  what AppUpdateManager.triggerInstall() asks for ("${context.packageName}.fileprovider").
+  @xml/file_paths lives at app/src/sideload/res/xml/file_paths.xml — also flavour-scoped, so the
+  play build carries no trace of it.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+
+</manifest>

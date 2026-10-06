@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SRKB Unified</title>
+<meta name="description" content="Official download page for SRKB Unified — the attendance and calling app.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><a class="brand" href="/">SRKB Unified</a><nav><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/delete-account">Delete account</a></nav></header>
+<main>
+<h1>SRKB Unified</h1>
+<p class="sub">The attendance and calling app. Requires login credentials issued by your centre.</p>
+
+<div class="card">
+  <h2>Android <span id="ver" style="font-weight:400;color:var(--muted);font-size:.9rem"></span></h2>
+  <span id="status" class="status">Checking server…</span>
+  <p>Direct APK download. Enable &ldquo;Install unknown apps&rdquo; for your browser when Android asks.</p>
+  <a id="dl" class="btn disabled" aria-disabled="true">Checking…</a>
+  <a id="play-btn" class="btn play" hidden>Get it on Google Play</a>
+  <div id="offline" class="warn" hidden style="margin-top:12px">The download server is offline at the moment. Nothing is wrong with your device &mdash; please try again a little later.</div>
+</div>
+
+<div class="card">
+  <h2>iPhone, iPad &amp; Mac</h2>
+  <p><strong>Nothing to download.</strong> Open the web app in Safari and add it to your home screen / Dock. It then behaves like a normal app and keeps working offline.</p>
+  <a class="btn" href="https://attendance.example.com/register">Open the web app</a>
+  <ol style="margin-top:14px">
+    <li><strong>iPhone / iPad:</strong> open the web app in Safari &rarr; Share &rarr; Add to Home Screen &rarr; Add.</li>
+    <li><strong>Mac:</strong> Safari &rarr; File &rarr; Add to Dock (macOS Sonoma or newer), or install from the address bar in Chrome / Edge.</li>
+    <li>Log in once inside the installed app &mdash; it keeps its own login.</li>
+  </ol>
+  <p class="meta" style="margin-top:10px">Add it from the web app page itself, not from this page, or the icon will reopen this page.</p>
+</div>
+
+<div class="card">
+  <h2>Background sync</h2>
+  <p>From version 2.41, anything you recorded without a connection &mdash; registrations, class attendance and call responses &mdash; uploads on its own once your phone is online again, usually even if the app is closed (not if you force-stop it). It also keeps your calling list and class data up to date. Android decides exactly when background work runs, so battery-saver modes can delay it a little.</p>
+</div>
+
+<div class="card" id="changelog-card" hidden>
+  <h2>What&rsquo;s new</h2>
+  <ul id="changelog"></ul>
+</div>
+</main>
+<footer>&copy; 2026 FiWpy &middot; <a href="/terms">Terms</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/delete-account">Delete account</a> &middot; <a href="mailto:krsna6366@gmail.com">krsna6366@gmail.com</a></footer>
+<script src="app.js"></script>
+</body>
+</html>

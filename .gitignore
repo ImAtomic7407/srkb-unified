@@ -1,0 +1,35 @@
+# secrets and local config
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+google_sheets_key.json
+*service-account*.json
+local.properties
+
+# data
+*.db
+*.db-*
+*.sqlite
+*.xlsx
+attendance-server/Data/*
+attendance-server/Server file/*
+!attendance-server/Data/.gitkeep
+!attendance-server/Server file/.gitkeep
+backups/
+logs/
+*.log
+
+# build output
+node_modules/
+dist/
+build/
+.gradle/
+.kotlin/
+__pycache__/
+*.pyc
+*.apk
+*.aab
+.vercel/
+.idea/

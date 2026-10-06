@@ -1,0 +1,11 @@
+Flask
+SQLAlchemy
+Flask-SQLAlchemy
+pandas
+openpyxl
+numpy
+waitress
+flask-compress
+gspread
+google-auth
+PyJWT

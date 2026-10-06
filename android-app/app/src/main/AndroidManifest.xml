@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!--
+      Background sync uses WorkManager, which merges in FOREGROUND_SERVICE and a foreground service
+      we never start (we never call setForeground). Removed so Play has nothing to ask about:
+      background sync here is plain scheduled work with no notification and no foreground service.
+      WAKE_LOCK and RECEIVE_BOOT_COMPLETED stay; WorkManager needs them to run and to reschedule
+      after a reboot.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+    <!--
+      REQUEST_INSTALL_PACKAGES and the FileProvider for the in-app APK updater are DELIBERATELY
+      NOT HERE. They live in app/src/sideload/AndroidManifest.xml, so they merge into the
+      sideloaded APK (com.example) and can never reach the Play bundle.
+
+      Play's Device and Network Abuse policy forbids an app distributed through Play from
+      updating itself by any route other than Play, and Play scans the MERGED MANIFEST — so
+      that permission alone fails review even if no code path reaches it. The sideload build is
+      not on Play and self-update is its only route. Two channels, two correct answers; the
+      flavour source set is what keeps them apart.
+
+      Moving either entry up into this file breaks the Play upload. Two checks will catch it:
+      PlayBuildCarriesNoUpdaterTest (testPlayDebugUnitTest) and the merged-manifest grep in
+      build-play-bundle.ps1. See also the two flavour copies of UpdateGate().
+    -->
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MyApplication">
+        <service android:name="androidx.work.impl.foreground.SystemForegroundService" tools:node="remove" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode|density|keyboard|navigation"
+            android:theme="@style/Theme.MyApplication">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

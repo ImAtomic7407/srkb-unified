@@ -1,0 +1,3132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <!-- iOS / macOS install tags — see the block in registerer.html for why these
+         are repeated per page rather than living only on start_url. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="AttendEase">
+    <title>Attendance Management System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/host-tailwind.css') }}">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Glassmorphism Styles */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+        }
+        .glass-card-dark {
+            background: rgba(15, 23, 42, 0.6);
+            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        /* Sticky Column for Glass Table */
+        .sticky-col {
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            background: rgba(255, 255, 255, 0.15);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        thead .sticky-col {
+            z-index: 20;
+            background: rgba(255, 255, 255, 0.25);
+        }
+        /* Tables in Glass */
+        .glass-table-row:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%);
+            background-attachment: fixed;
+            color: #fff;
+        }
+        
+        /* Force vertical scrollbar to left */
+        .force-left-scroll {
+            direction: rtl;
+            overflow-y: auto;
+            scrollbar-gutter: stable;
+        }
+        .force-left-scroll > * {
+            direction: ltr;
+        }
+        /* Custom scrollbar for tables */
+        .table-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .table-container::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.4); 
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.6); 
+        }
+        
+        /* Top Scrollbar Styling */
+        #top-h-scroll::-webkit-scrollbar {
+            height: 6px;
+        }
+        #top-h-scroll::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        #top-h-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 10px;
+        }
+        #top-h-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.6);
+        }
+        #top-h-content {
+            height: 1px;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Custom selection color */
+        ::selection {
+            background: rgba(236, 72, 153, 0.3);
+            color: white;
+        }
+
+        /* ── Mobile-first layout ── */
+        @media (max-width: 1024px) {
+            .glass-card { margin-bottom: 1rem; }
+        }
+        /* Centre-row button group: wrap on narrow screens */
+        .centre-row-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .centre-row-wrap .centre-select-wrapper {
+            flex: 1 1 100%;
+            min-width: 0;
+        }
+        .centre-row-wrap .centre-btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        @media (min-width: 640px) {
+            .centre-row-wrap .centre-select-wrapper {
+                flex: 1 1 0;
+                min-width: 0;
+            }
+        }
+    </style>
+</head>
+<body class="font-sans min-h-screen flex flex-col pt-10 Selection:bg-pink-500/30 overflow-x-hidden">
+    <!-- Tunnel Link Banner -->
+    <div id="tunnel-banner" class="hidden fixed top-0 w-full bg-slate-900 text-white z-[100] px-4 py-2 transition-all duration-500 shadow-2xl overflow-hidden">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <span class="flex h-2 w-2 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Public Access Live:</p>
+                <a id="tunnel-link" href="#" target="_blank" class="text-xs font-bold text-indigo-300 hover:text-white transition-colors truncate max-w-[200px] sm:max-w-none">Detecting...</a>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
+                <span class="text-[10px] font-bold text-slate-500 bg-slate-800 px-2 py-1 rounded">Admin: ihost</span>
+                <button onclick="doLogout()" class="text-[10px] font-bold text-rose-400 hover:text-rose-300 transition-colors uppercase ml-2">Logout</button>
+                <div class="w-px h-4 bg-slate-700 mx-2 hidden sm:block"></div>
+                <!-- WhatsApp Share -->
+                <button onclick="shareViaWhatsApp()" title="Share via WhatsApp" class="bg-green-600 hover:bg-green-500 text-white text-[10px] font-black px-3 py-1 rounded flex items-center gap-1 transition-all">
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.118 1.532 5.845L.057 23.714a.5.5 0 00.61.61l5.869-1.475A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.718 9.718 0 01-5.14-1.464l-.368-.218-3.484.876.891-3.396-.239-.383A9.75 9.75 0 0112 2.25c5.385 0 9.75 4.365 9.75 9.75S17.385 21.75 12 21.75z"/></svg>
+                    WA
+                </button>
+                <!-- Email Share -->
+                <button onclick="shareViaEmail()" title="Share via Email" class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black px-3 py-1 rounded flex items-center gap-1 transition-all">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    EMAIL
+                </button>
+                <!-- SMS Share -->
+                <button onclick="shareViaSMS()" title="Share via SMS" class="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black px-3 py-1 rounded flex items-center gap-1 transition-all">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                    SMS
+                </button>
+                <!-- Copy Link -->
+                <button onclick="copyTunnelLink()" title="Copy Link" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black px-3 py-1 rounded flex items-center gap-1 transition-all">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    COPY
+                </button>
+                <button onclick="document.getElementById('tunnel-banner').style.display='none'" class="text-slate-500 hover:text-white p-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Persistent top bar: the tunnel banner above only shows once a tunnel
+         URL is detected (and can be dismissed permanently for the session), so
+         its Logout button was effectively unreachable whenever that banner
+         never appeared or got dismissed. This bar is always visible, matching
+         registerer.html's always-on header Logout. -->
+    <div class="w-full bg-slate-900/80 border-b border-white/10 px-3 sm:px-5 lg:px-8 py-1.5 flex items-center justify-end gap-2">
+        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Admin</span>
+        <button onclick="doLogout()" class="text-[10px] font-bold text-rose-400 hover:text-rose-300 transition-colors uppercase">Logout</button>
+    </div>
+
+    <!-- MAIN DASHBOARD CONTENT -->
+    <div id="auth-status-message" class="hidden fixed top-12 left-1/2 -translate-x-1/2 z-[120] rounded-full bg-rose-600 px-4 py-2 text-xs font-black text-white shadow-2xl"></div>
+
+    <div class="flex-grow w-full px-3 sm:px-5 lg:px-8 py-4 overflow-x-hidden">
+        <div class="flex flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)_minmax(0,1fr)] gap-4 lg:gap-6 items-start">
+            
+            <!-- LEFT COLUMN: MINI LOG & DEVICE MANAGER (shows below main on mobile) -->
+            <aside class="w-full min-w-0 space-y-4 order-3 lg:order-1">
+                <!-- Mini Log Box -->
+                <div class="glass-card-dark rounded-3xl shadow-2xl border border-white/10 overflow-hidden">
+                    <div class="bg-white/5 px-6 py-4 border-b border-white/10 flex justify-between items-center">
+                        <h3 class="text-[10px] font-black text-white/60 uppercase tracking-[0.2em]">System Logs</h3>
+                        <span class="flex h-2 w-2 relative">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                    <div id="mini-log-content" class="p-4 h-48 overflow-y-auto font-mono text-[10px] text-white/80 space-y-1 custom-scroll">
+                        <div class="text-white/40 italic">Initializing log stream...</div>
+                    </div>
+                </div>
+
+                <!-- Pending Approvals Box -->
+                <div id="pending-approvals-box" class="hidden glass-card rounded-3xl shadow-2xl border-white/20 overflow-hidden">
+                    <div class="bg-white/10 px-6 py-4 border-b border-white/10 flex justify-between items-center font-black">
+                        <h3 class="text-[10px] text-white/60 uppercase tracking-[0.2em]">Approvals</h3>
+                        <span id="pending-count" class="bg-pink-500 text-white text-[10px] px-2 py-0.5 rounded-full">0</span>
+                    </div>
+                    <div id="pending-list" class="p-0 max-h-64 overflow-y-auto divide-y divide-white/5 custom-scroll">
+                        <!-- Pending users injected here -->
+                    </div>
+                </div>
+
+                <!-- Centre Change Requests Box -->
+                <div id="centre-change-requests-box" class="hidden glass-card rounded-3xl shadow-2xl border-white/20 overflow-hidden">
+                    <div class="bg-white/10 px-6 py-4 border-b border-white/10 flex justify-between items-center font-black">
+                        <h3 class="text-[10px] text-white/60 uppercase tracking-[0.2em]">Centre Change Requests</h3>
+                        <span id="centre-change-count" class="bg-violet-500 text-white text-[10px] px-2 py-0.5 rounded-full">0</span>
+                    </div>
+                    <div id="centre-change-list" class="p-0 max-h-64 overflow-y-auto divide-y divide-white/5 custom-scroll">
+                        <!-- Pending centre change requests injected here -->
+                    </div>
+                </div>
+
+                <!-- Device Manager Box -->
+                <div class="glass-card rounded-3xl shadow-2xl border-white/20 overflow-hidden">
+                    <div class="bg-white/10 px-6 py-4 border-b border-white/10">
+                        <h3 class="text-[10px] font-black text-white/60 uppercase tracking-[0.2em]">Live Devices</h3>
+                    </div>
+                    <div class="p-0 overflow-x-auto max-h-96 overflow-y-auto table-container">
+                        <table class="min-w-full divide-y divide-white/10">
+                            <thead class="bg-white/5">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-[10px] font-black text-white/40 uppercase tracking-widest">Device</th>
+                                    <th class="px-4 py-3 text-right text-[10px] font-black text-white/40 uppercase tracking-widest">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="device-list-body" class="divide-y divide-white/5">
+                                <tr><td colspan="2" class="px-4 py-6 text-center text-xs text-white/40">Searching...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- CENTER COLUMN: MAIN ACTIONS & TABLE (always first on mobile) -->
+            <main class="min-w-0 space-y-4 order-1 lg:order-2 w-full">
+                <!-- TOP DASHBOARD CONTROL BAR (Glassified) -->
+                <div class="glass-card rounded-2xl sm:rounded-[2rem] shadow-2xl p-4 sm:p-6 flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-4 sm:gap-6 mb-4 sm:mb-8 min-w-0 w-full">
+                    <!-- Live Count Chip -->
+                    <div class="flex items-center gap-3 bg-white/10 px-4 py-2.5 sm:px-6 sm:py-3 rounded-2xl border border-white/10 self-start sm:self-auto">
+                        <span id="live-count" class="text-2xl sm:text-3xl font-black text-white leading-none">0</span>
+                        <div class="flex flex-col">
+                            <span class="text-[10px] font-black text-white/60 uppercase tracking-widest">Registrations</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="flex h-1.5 w-1.5 relative">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                                </span>
+                                <span class="text-[8px] font-bold text-emerald-400 uppercase">Live</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-3 sm:gap-4 w-full sm:flex-1 min-w-0">
+                        <section class="rounded-2xl bg-white/5 border border-white/10 p-4 min-w-0">
+                            <div class="flex flex-col gap-3">
+                                <label class="text-[10px] font-black text-white/55 uppercase tracking-[0.2em]">CENTRE</label>
+                                <div class="centre-row-wrap">
+                                    <div class="centre-select-wrapper relative">
+                                        <select id="host-centre-select" onchange="selectHostCentre(this.value)" class="w-full appearance-none px-4 py-3 bg-white/10 border border-white/10 rounded-2xl text-sm font-bold text-white focus:ring-4 focus:ring-white/20 transition-all cursor-pointer">
+                                            {% if centres %}
+                                                {% for centre in centres %}
+                                                    <option value="{{ centre.centre_id }}" {% if centre.centre_id == selected_centre_id %}selected{% endif %}>{{ centre.name }}</option>
+                                                {% endfor %}
+                                            {% else %}
+                                                <option value="{{ selected_centre_id }}">{{ selected_centre_name or 'Centre B' }}</option>
+                                            {% endif %}
+                                        </select>
+                                        <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                                        </div>
+                                    </div>
+                                    <div class="centre-btn-group">
+                                        <button type="button" onclick="openHostNewCentreModal()" class="inline-flex items-center gap-1.5 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border border-cyan-400/20 whitespace-nowrap active:scale-95">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                                            New
+                                        </button>
+                                        <button type="button" onclick="openHostEditCentreModal()" class="inline-flex items-center gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border border-amber-400/20 whitespace-nowrap active:scale-95">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M11 5h-6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-6"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                            Edit
+                                        </button>
+                                        <button type="button" onclick="confirmHostDeleteCentre()" class="inline-flex items-center gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-200 px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border border-rose-400/20 whitespace-nowrap active:scale-95">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            Del
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="rounded-2xl bg-white/5 border border-white/10 p-4 min-w-0">
+                            <div class="flex flex-col gap-3">
+                                <!-- Youth/Congregation: category the host view is currently showing.
+                                     Hidden unless the selected centre has congregation enabled. -->
+                                <div id="host-category-container" class="hidden flex-col gap-2">
+                                    <label class="text-[10px] font-black text-white/55 uppercase tracking-[0.2em]">SHOWING CATEGORY</label>
+                                    <div class="relative min-w-0">
+                                        <select id="host-category-select" onchange="setHostCategory(this.value)" class="w-full appearance-none px-4 py-3 bg-slate-900 border border-white/10 rounded-2xl text-sm font-bold text-white focus:ring-4 focus:ring-slate-700/50 transition-all cursor-pointer min-w-0">
+                                            <option value="youth" class="bg-slate-900 text-white">Youth</option>
+                                            <option value="congregation" class="bg-slate-900 text-white">Congregation</option>
+                                        </select>
+                                        <div class="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                <label class="text-[10px] font-black text-white/55 uppercase tracking-[0.2em]">BATCH</label>
+                                <div class="flex flex-col gap-3 min-w-0">
+                                    <div class="relative min-w-0">
+                                        <select id="batch-select" onchange="onHostBatchSelected(this)" class="w-full appearance-none px-4 py-3 bg-slate-900 border border-white/10 rounded-2xl text-sm font-bold text-white focus:ring-4 focus:ring-slate-700/50 transition-all cursor-pointer min-w-0">
+                                            <option value="" data-category="" class="bg-slate-900 text-white font-black">LIVE (All Batches)</option>
+                                            {% for batch in batches %}
+                                            <option value="{{ batch.name }}" data-batch-id="{{ batch.id }}" data-category="{{ batch.category or 'youth' }}" class="bg-slate-900 text-white">{{ batch.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2 min-w-0">
+                                        <button type="button" onclick="openHostNewBatchModal()" class="inline-flex items-center gap-1.5 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 px-3 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border border-cyan-400/20 whitespace-nowrap">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                                            New Batch
+                                        </button>
+                                        <button type="button" onclick="openHostRenameBatchModal()" id="host-rename-batch-btn" class="inline-flex items-center gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 px-3 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border border-amber-400/20 whitespace-nowrap opacity-40 cursor-not-allowed pointer-events-none" title="Rename selected batch">
+                                            Rename Batch
+                                        </button>
+                                        <button type="button" onclick="deleteSelectedBatch()" id="host-delete-batch-btn" class="inline-flex items-center gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-200 px-3 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border border-rose-400/20 whitespace-nowrap opacity-40 cursor-not-allowed pointer-events-none" title="Delete this entire batch and its sessions">
+                                            Delete Batch
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="rounded-2xl bg-white/5 border border-white/10 p-4 min-w-0">
+                            <div class="flex flex-col gap-3">
+                                <label class="text-[10px] font-black text-white/55 uppercase tracking-[0.2em]">SESSION</label>
+                                <div class="flex flex-col gap-3 min-w-0">
+                                    <div class="relative min-w-0">
+                                        <select id="session-select" onchange="onSessionSelected(this.value)" disabled class="w-full appearance-none px-4 py-3 bg-white/10 border border-white/10 rounded-2xl text-sm font-bold text-white focus:ring-4 focus:ring-white/20 transition-all cursor-pointer opacity-50 cursor-not-allowed min-w-0">
+                                            <option value="" class="bg-indigo-900">Select a batch to view sessions</option>
+                                        </select>
+                                        <div class="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2 min-w-0">
+                                        <button type="button" onclick="openNewSessionModal()" id="host-new-session-btn" class="bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95 leading-none disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap" title="Create a session under the selected batch">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                                            New Session
+                                        </button>
+                                        <button type="button" onclick="openHostRenameSessionModal()" id="host-rename-session-btn" class="inline-flex items-center gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 px-3 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border border-amber-400/20 whitespace-nowrap opacity-40 cursor-not-allowed pointer-events-none" title="Rename selected session">
+                                            Rename Session
+                                        </button>
+                                        <button onclick="deleteCurrentSession()" id="delete-session-btn" class="bg-pink-500/20 text-pink-500 hover:bg-pink-500 hover:text-white px-4 py-3 rounded-xl transition-all shadow-lg shadow-pink-500/10 items-center gap-2 font-black text-[10px] uppercase tracking-widest opacity-40 cursor-not-allowed pointer-events-none whitespace-nowrap" title="Delete selected session">
+                                            Delete Session
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="rounded-2xl bg-white/5 border border-white/10 p-4 min-w-0">
+                            <div class="flex flex-col gap-3">
+                                <label class="text-[10px] font-black text-white/55 uppercase tracking-[0.2em]">DATE</label>
+                                <div class="rounded-2xl bg-white/5 border border-white/10 px-4 py-2 min-w-0">
+                                    <input type="date" id="attendance-date" disabled class="w-full px-3 py-3 bg-white/5 border border-white/5 rounded-xl text-sm font-bold text-white/50 opacity-50 min-w-0 touch-manipulation">
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+
+                <!-- Attendee Table Section (Glassified & Expanded) -->
+                <section class="glass-card rounded-2xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col min-h-[400px] sm:min-h-[600px] border-white/20 min-w-0 w-full max-w-full">
+                    <div class="bg-white/10 px-4 sm:px-8 py-4 sm:py-6 border-b border-white/10 flex flex-col gap-3 shrink-0 min-w-0">
+                        <div class="flex items-center justify-between gap-3 flex-wrap">
+                            <h2 class="text-base sm:text-xl font-black text-white flex items-center gap-2">
+                                <div class="p-1.5 sm:p-2 bg-white/10 rounded-xl">
+                                    <svg class="h-4 w-4 sm:h-6 sm:w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                                </div>
+                                Live Attendance
+                            </h2>
+                            <div id="live-indicator" class="flex items-center gap-2 text-xs font-black text-white/40 uppercase tracking-widest">
+                                <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span>
+                                Streaming
+                            </div>
+                            <div id="editor-indicator" class="hidden flex items-center gap-2 text-xs font-black text-amber-400/70 uppercase tracking-widest">
+                                <span class="w-2.5 h-2.5 bg-amber-400 rounded-full"></span>
+                                Editor
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 min-w-0 w-full">
+                            <div class="relative flex-1 min-w-[140px]">
+                                <input type="text" id="attendance-search" oninput="filterAttendanceTable()" placeholder="Search name or number..." class="w-full bg-white/10 border border-white/20 text-xs font-bold text-white placeholder-white/40 rounded-xl px-9 py-2.5 focus:ring-4 focus:ring-white/20 transition-all">
+                                <div class="absolute left-3 top-1/2 -translate-y-1/2 opacity-40">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <label class="text-[10px] font-black text-white/40 uppercase tracking-widest hidden sm:block">View:</label>
+                                <select id="admin-sheet-editor-select" onchange="toggleEditorMode(this.value)" class="bg-white/10 border-none text-[10px] font-black text-white uppercase tracking-widest rounded-xl px-3 py-2 focus:ring-4 focus:ring-white/20 transition-all cursor-pointer">
+                                    <option value="LIVE" class="bg-indigo-900">Live View</option>
+                                    <option value="SERVER_LIST" class="bg-indigo-900">Server Data</option>
+                                </select>
+                            </div>
+                            <button id="attendance-delete-btn" onclick="batchDelete()" class="hidden bg-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-rose-500/20 shrink-0" title="Delete attendance rows for the current filters">
+                                <i class="fas fa-trash-alt mr-2"></i> Delete Attendance Rows
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-1 overflow-hidden relative flex-col min-w-0">
+                        <!-- TOP SYNC SCROLLBAR -->
+                        <div id="top-h-scroll" class="overflow-x-auto overflow-y-hidden h-3 bg-white/5 mx-6 mt-2 rounded-full hidden lg:block">
+                            <div id="top-h-content"></div>
+                        </div>
+
+                        <!-- TABLE AREA (Sidebar Removed, expanded to full width) -->
+                        <div class="flex-1 overflow-hidden relative flex flex-col min-w-0">
+                            <div class="flex-grow min-w-0 max-w-full overflow-auto table-container" id="table-scroll-container">
+                                <table id="main-attendance-table" class="min-w-[920px] w-full divide-y divide-white/10">
+                                    <thead id="table-header" class="sticky top-0 z-10">
+                                        <!-- Headers injected here -->
+                                    </thead>
+                                    <tbody id="attendees-table-body" class="divide-y divide-white/5">
+                                        <!-- Data injected here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <!-- RIGHT COLUMN: NAVIGATION & MANAGEMENT (shows second on mobile) -->
+            <aside class="w-full min-w-0 space-y-6 order-2 lg:order-3">
+                <!-- Navigation Panel -->
+                <div class="space-y-4">
+                    <h3 class="px-6 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Navigation</h3>
+                    <div class="grid grid-cols-1 gap-4">
+                        <a href="/register" class="group glass-card p-5 rounded-2xl border-white/10 hover:bg-white/20 transition-all">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-white/90 group-hover:text-white">Register View</span>
+                                <svg class="w-4 h-4 text-white/40 group-hover:text-white transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                            </div>
+                        </a>
+                        <a href="/downloads" class="group glass-card p-5 rounded-2xl border-white/10 hover:bg-white/20 transition-all">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-white/90 group-hover:text-white">Downloads</span>
+                                <svg class="w-4 h-4 text-white/40 group-hover:text-white transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            </div>
+                        </a>
+                        <a href="/inject" class="group glass-card p-5 rounded-2xl border-white/10 hover:bg-indigo-500/20 transition-all">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-white/90 group-hover:text-indigo-300">Inject Data</span>
+                                <svg class="w-4 h-4 text-white/40 group-hover:text-indigo-300 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"></path></svg>
+                            </div>
+                        </a>
+                        <a href="/logs" class="group glass-card p-5 rounded-2xl border-white/10 hover:bg-emerald-500/20 transition-all">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-white/90 group-hover:text-emerald-400">Server Logs</span>
+                                <svg class="w-4 h-4 text-white/40 group-hover:text-emerald-400 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Management Panel -->
+                <div class="space-y-4">
+                    <h3 class="px-6 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Master Data</h3>
+                    <div class="grid grid-cols-1 gap-4">
+                        <button onclick="openAddressModal()" class="group glass-card p-5 rounded-2xl border-white/10 hover:bg-indigo-500/20 transition-all text-left">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-indigo-200">Addresses</span>
+                                <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            </div>
+                        </button>
+                        <button onclick="openRemarkModal()" class="group glass-card p-5 rounded-2xl border-white/10 hover:bg-emerald-500/20 transition-all text-left">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-emerald-200">Remarks</span>
+                                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Registerers Panel -->
+                <div class="space-y-4">
+                    <h3 class="px-6 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Registerers</h3>
+                    <div id="centre-registerers-box" class="glass-card rounded-3xl shadow-2xl border-white/20 overflow-hidden">
+                        <div class="bg-white/10 px-6 py-4 border-b border-white/10 flex justify-between items-center font-black gap-3">
+                            <div class="min-w-0">
+                                <div class="text-[10px] text-white/60 uppercase tracking-[0.2em]">Assigned to selected centre</div>
+                                <div id="centre-registerers-subtitle" class="text-[9px] text-white/40 uppercase tracking-[0.18em] truncate">Assigned to {{ selected_centre_name or 'selected centre' }}</div>
+                            </div>
+                            <span id="centre-registerers-count" class="bg-cyan-500 text-white text-[10px] px-2 py-0.5 rounded-full">0</span>
+                        </div>
+                        <div class="overflow-x-auto max-h-96 overflow-y-auto table-container">
+                            <table class="min-w-[520px] w-full divide-y divide-white/10">
+                                <thead class="bg-white/5">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-[10px] font-black text-white/40 uppercase tracking-widest">Username</th>
+                                        <th class="px-4 py-3 text-left text-[10px] font-black text-white/40 uppercase tracking-widest">Role</th>
+                                        <th class="px-4 py-3 text-left text-[10px] font-black text-white/40 uppercase tracking-widest">Status</th>
+                                        <th class="px-4 py-3 text-left text-[10px] font-black text-white/40 uppercase tracking-widest">Last Seen</th>
+                                        <th class="px-4 py-3 text-left text-[10px] font-black text-white/40 uppercase tracking-widest">Approved / Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="centre-registerers-body" class="divide-y divide-white/5">
+                                    {% if registerers and registerers|length > 0 %}
+                                        {% for reg in registerers %}
+                                            <tr class="hover:bg-white/5 transition-colors">
+                                                <td class="px-4 py-3 text-xs font-bold text-white whitespace-nowrap">{{ reg.display_name or reg.username }}</td>
+                                                <td class="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-cyan-300 whitespace-nowrap">{{ reg.role or 'registerer' }}</td>
+                                                <td class="px-4 py-3 whitespace-nowrap">
+                                                    {% set reg_status = (reg.status or 'inactive')|lower %}
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-widest {% if reg_status == 'active' %}bg-emerald-500/15 text-emerald-300 border-emerald-500/20{% else %}bg-white/10 text-white/40 border-white/10{% endif %}">
+                                                        {{ reg.status or 'inactive' }}
+                                                    </span>
+                                                </td>
+                                                <td class="px-4 py-3 text-[10px] font-mono text-white/60 whitespace-nowrap">{{ reg.last_seen_at.strftime("%Y-%m-%d %H:%M:%S") if reg.last_seen_at else '—' }}</td>
+                                                <td class="px-4 py-3 text-[10px] font-mono text-white/60 whitespace-nowrap">{{ reg.approved_at.strftime("%Y-%m-%d %H:%M:%S") if reg.approved_at else (reg.created_at.strftime("%Y-%m-%d %H:%M:%S") if reg.created_at else '—') }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="5" class="px-4 py-6 text-center text-xs text-white/40">No registerers assigned to this centre.</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- New Session Modal (vibrant glass version) -->
+    <div id="new-session-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-md"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto flex min-h-full items-center justify-center p-4">
+            <div class="relative glass-card rounded-3xl shadow-2xl w-full max-w-md fade-in border-white/20">
+                <div class="bg-white/10 px-8 py-5 rounded-t-3xl border-b border-white/10">
+                    <h3 class="text-sm font-black text-white uppercase tracking-widest">Create New Session</h3>
+                </div>
+                <div class="px-8 py-8 space-y-6">
+                    <p class="text-[11px] text-white/60 leading-relaxed">Enter a unique name for the new attendance sheet. This will create a new tab inside the master Excel file.</p>
+                    <div>
+                        <label class="block text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Session Identifier</label>
+                        <input type="text" id="new-session-name" placeholder="e.g., MorningBatch_2026"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-2xl text-white text-sm focus:ring-4 focus:ring-white/20 transition-all outline-none">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button onclick="closeNewSessionModal()" class="px-6 py-3 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 font-bold text-[10px] uppercase">Cancel</button>
+                        <button onclick="createNewSession()" class="px-6 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-400 font-black text-[10px] uppercase shadow-lg shadow-emerald-500/20 transition-all">Create Session</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Batch Modal -->
+    <div id="host-new-batch-modal" class="fixed inset-0 z-[92] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-md"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto flex min-h-full items-center justify-center p-4">
+            <div class="relative glass-card rounded-3xl shadow-2xl w-full max-w-md fade-in border-white/20">
+                <div class="bg-white/10 px-8 py-5 rounded-t-3xl border-b border-white/10">
+                    <h3 class="text-sm font-black text-white uppercase tracking-widest">Create New Batch</h3>
+                </div>
+                <div class="px-8 py-8 space-y-6">
+                    <p class="text-[11px] text-white/60 leading-relaxed">Create a batch under the currently selected centre. The page will reload after creation so the new batch appears in the dropdown.</p>
+                    <div>
+                        <label class="block text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Batch Name</label>
+                        <input type="text" id="host-new-batch-name" placeholder="e.g., March 2026 Batch"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-2xl text-white text-sm focus:ring-4 focus:ring-white/20 transition-all outline-none">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button onclick="closeHostNewBatchModal()" class="px-6 py-3 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 font-bold text-[10px] uppercase">Cancel</button>
+                        <button onclick="createHostNewBatch()" class="px-6 py-3 bg-cyan-500 text-white rounded-xl hover:bg-cyan-400 font-black text-[10px] uppercase shadow-lg shadow-cyan-500/20 transition-all">Create Batch</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Batch Modal -->
+    <div id="host-rename-batch-modal" class="fixed inset-0 z-[92] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-md"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto flex min-h-full items-center justify-center p-4">
+            <div class="relative glass-card rounded-3xl shadow-2xl w-full max-w-md fade-in border-white/20">
+                <div class="bg-white/10 px-8 py-5 rounded-t-3xl border-b border-white/10">
+                    <h3 class="text-sm font-black text-white uppercase tracking-widest">Rename Batch</h3>
+                </div>
+                <div class="px-8 py-8 space-y-6">
+                    <p class="text-[11px] text-white/60 leading-relaxed">Rename the selected batch. Attendance rows linked to this batch will keep the same records but their batch label will update.</p>
+                    <div>
+                        <label class="block text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Current Batch</label>
+                        <input type="text" id="host-rename-batch-current" readonly
+                            class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white/50 text-sm outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">New Batch Name</label>
+                        <input type="text" id="host-rename-batch-name" placeholder="e.g., March 2026 Batch"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-2xl text-white text-sm focus:ring-4 focus:ring-white/20 transition-all outline-none">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button onclick="closeHostRenameBatchModal()" class="px-6 py-3 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 font-bold text-[10px] uppercase">Cancel</button>
+                        <button onclick="renameHostBatch()" class="px-6 py-3 bg-amber-500 text-white rounded-xl hover:bg-amber-400 font-black text-[10px] uppercase shadow-lg shadow-amber-500/20 transition-all">Save Name</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Session Modal -->
+    <div id="host-rename-session-modal" class="fixed inset-0 z-[92] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-md"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto flex min-h-full items-center justify-center p-4">
+            <div class="relative glass-card rounded-3xl shadow-2xl w-full max-w-md fade-in border-white/20">
+                <div class="bg-white/10 px-8 py-5 rounded-t-3xl border-b border-white/10">
+                    <h3 class="text-sm font-black text-white uppercase tracking-widest">Rename Session</h3>
+                </div>
+                <div class="px-8 py-8 space-y-6">
+                    <p class="text-[11px] text-white/60 leading-relaxed">Rename the selected session's display label. Attendance rows and the Excel/Sheets tab keep their existing identity — only the name shown in the app updates.</p>
+                    <div>
+                        <label class="block text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Current Session</label>
+                        <input type="text" id="host-rename-session-current" readonly
+                            class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white/50 text-sm outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">New Session Name</label>
+                        <input type="text" id="host-rename-session-name" placeholder="e.g., OTP Batch — 27 July"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-2xl text-white text-sm focus:ring-4 focus:ring-white/20 transition-all outline-none">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button onclick="closeHostRenameSessionModal()" class="px-6 py-3 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 font-bold text-[10px] uppercase">Cancel</button>
+                        <button onclick="renameHostSession()" class="px-6 py-3 bg-amber-500 text-white rounded-xl hover:bg-amber-400 font-black text-[10px] uppercase shadow-lg shadow-amber-500/20 transition-all">Save Name</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Centre Modal -->
+    <div id="host-new-centre-modal" class="fixed inset-0 z-[93] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-md"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto flex min-h-full items-center justify-center p-4">
+            <div class="relative glass-card rounded-3xl shadow-2xl w-full max-w-lg fade-in border-white/20">
+                <div class="bg-white/10 px-8 py-5 rounded-t-3xl border-b border-white/10">
+                    <h3 class="text-sm font-black text-white uppercase tracking-widest">Create New Centre</h3>
+                </div>
+                <div class="px-8 py-8 space-y-5">
+                    <p class="text-[11px] text-white/60 leading-relaxed">Create a new centre. You can optionally link a Google Sheet now or later.</p>
+                    <div>
+                        <label class="block text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Centre ID</label>
+                        <input type="text" id="host-new-centre-id" placeholder="e.g., delhi_north_base"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-2xl text-white text-sm focus:ring-4 focus:ring-white/20 transition-all outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Centre Name</label>
+                        <input type="text" id="host-new-centre-name" placeholder="e.g., Delhi North Base"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-2xl text-white text-sm focus:ring-4 focus:ring-white/20 transition-all outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Google Sheet ID (optional)</label>
+                        <input type="text" id="host-new-centre-sheet-id" placeholder="Optional Google Sheet ID"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-2xl text-white text-sm focus:ring-4 focus:ring-white/20 transition-all outline-none">
+                    </div>
+                    <label class="flex items-center gap-3 text-xs font-bold text-white/70">
+                        <input type="checkbox" id="host-new-centre-sheet-enabled" class="rounded border-white/20 bg-white/10 text-cyan-500 focus:ring-cyan-500">
+                        Enable Google Sheet syncing
+                    </label>
+                    <label class="flex items-center gap-3 text-xs font-bold text-white/70">
+                        <input type="checkbox" id="host-new-centre-congregation-enabled" class="rounded border-white/20 bg-white/10 text-cyan-500 focus:ring-cyan-500">
+                        Enable Congregation track (adds youth/congregation toggle)
+                    </label>
+                    <div class="flex justify-end gap-3">
+                        <button onclick="closeHostNewCentreModal()" class="px-6 py-3 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 font-bold text-[10px] uppercase">Cancel</button>
+                        <button onclick="createHostNewCentre()" class="px-6 py-3 bg-cyan-500 text-white rounded-xl hover:bg-cyan-400 font-black text-[10px] uppercase shadow-lg shadow-cyan-500/20 transition-all">Create Centre</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Centre Modal -->
+    <div id="host-edit-centre-modal" class="fixed inset-0 z-[93] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-md"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto flex min-h-full items-center justify-center p-4">
+            <div class="relative glass-card rounded-3xl shadow-2xl w-full max-w-lg fade-in border-white/20">
+                <div class="bg-white/10 px-8 py-5 rounded-t-3xl border-b border-white/10">
+                    <h3 class="text-sm font-black text-white uppercase tracking-widest">Centre Settings</h3>
+                </div>
+                <div class="px-8 py-8 space-y-5">
+                    <p class="text-[11px] text-white/60 leading-relaxed">Edit the selected centre's name, tracks, and Google Sheet without changing its ID or linked data.</p>
+                    <div>
+                        <label class="block text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Centre ID</label>
+                        <input type="text" id="host-edit-centre-id" readonly
+                            class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white/50 text-sm outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">New Centre Name</label>
+                        <input type="text" id="host-edit-centre-name" placeholder="Enter new centre name"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-2xl text-white text-sm focus:ring-4 focus:ring-white/20 transition-all outline-none">
+                    </div>
+                    <label class="flex items-center gap-3 text-xs font-bold text-white/70">
+                        <input type="checkbox" id="host-edit-centre-congregation-enabled" class="rounded border-white/20 bg-white/10 text-cyan-500 focus:ring-cyan-500">
+                        Enable Congregation track (adds youth/congregation toggle)
+                    </label>
+
+                    <!-- Google Sheet linking. Each centre mirrors into its OWN
+                         spreadsheet; sharing one across centres is what mixed
+                         every centre's attendance into a single master list. -->
+                    <div class="pt-4 border-t border-white/10 space-y-3">
+                        <label class="block text-[10px] font-black text-white/40 uppercase tracking-widest">Google Sheet</label>
+                        <p class="text-[10px] text-white/40 leading-relaxed">Paste this centre's own sheet link. Each centre must have a different sheet. Leave blank to stop syncing this centre to Google Sheets.</p>
+                        <input type="text" id="host-edit-centre-sheet-id" placeholder="https://docs.google.com/spreadsheets/d/..."
+                            class="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-2xl text-white text-sm focus:ring-4 focus:ring-white/20 transition-all outline-none">
+                        <label class="flex items-center gap-3 text-xs font-bold text-white/70">
+                            <input type="checkbox" id="host-edit-centre-sheet-enabled" class="rounded border-white/20 bg-white/10 text-cyan-500 focus:ring-cyan-500">
+                            Sync this centre's attendance to its sheet
+                        </label>
+                        <div class="flex items-center gap-3">
+                            <button onclick="testHostCentreSheet()" class="px-4 py-2 bg-white/5 text-white/70 rounded-xl hover:bg-white/10 font-bold text-[10px] uppercase">Test Connection</button>
+                            <span id="host-edit-centre-sheet-status" class="text-[10px] font-bold text-white/40"></span>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3">
+                        <button onclick="closeHostEditCentreModal()" class="px-6 py-3 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 font-bold text-[10px] uppercase">Cancel</button>
+                        <button onclick="renameHostCentre()" class="px-6 py-3 bg-amber-500 text-white rounded-xl hover:bg-amber-400 font-black text-[10px] uppercase shadow-lg shadow-amber-500/20 transition-all">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Address Manager Modal (Glass) -->
+    <div id="address-modal" class="fixed inset-0 z-[120] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-md"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto flex min-h-full items-center justify-center p-4">
+            <div class="relative glass-card rounded-[2.5rem] shadow-2xl w-full max-w-xl transition-all border-white/20">
+                <div class="bg-white/10 px-8 py-6 rounded-t-[2.5rem] border-b border-white/10 flex justify-between items-center text-white">
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Address Manager</h3>
+                    <button onclick="closeAddressModal()" class="hover:rotate-90 transition-transform p-2 bg-white/5 rounded-full"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                </div>
+                <div class="p-10 space-y-8">
+                    <div class="flex gap-3">
+                        <input type="text" id="new-address-input" class="flex-1 px-6 py-4 bg-white/10 border border-white/10 rounded-2xl text-white text-sm focus:ring-4 focus:ring-white/20 transition-all outline-none" placeholder="Add new location...">
+                        <button onclick="addAddress()" class="px-8 py-4 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all">Add</button>
+                    </div>
+                    <div id="address-manage-list" class="max-h-[50vh] overflow-y-auto space-y-3 pr-4 custom-scroll"></div>
+                    <div class="flex justify-end pt-4"><button onclick="closeAddressModal()" class="px-10 py-4 bg-white/5 text-white/40 hover:text-white rounded-2xl font-black text-[10px] uppercase transition-all">Done</button></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Remark Manager Modal (Glass) -->
+    <div id="remark-modal" class="fixed inset-0 z-[120] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-md"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto flex min-h-full items-center justify-center p-4">
+            <div class="relative glass-card rounded-[2.5rem] shadow-2xl w-full max-w-xl transition-all border-white/20">
+                <div class="bg-white/10 px-8 py-6 rounded-t-[2.5rem] border-b border-white/10 flex justify-between items-center text-white">
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Remark Manager</h3>
+                    <button onclick="closeRemarkModal()" class="hover:rotate-90 transition-transform p-2 bg-white/5 rounded-full"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                </div>
+                <div class="p-10 space-y-8">
+                    <div class="flex gap-3">
+                        <input type="text" id="new-remark-input" class="flex-1 px-6 py-4 bg-white/10 border border-white/10 rounded-2xl text-white text-sm focus:ring-4 focus:ring-white/20 transition-all outline-none" placeholder="Add new shortcut...">
+                        <button onclick="addRemark()" class="px-8 py-4 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all">Add</button>
+                    </div>
+                    <div id="remark-manage-list" class="max-h-[50vh] overflow-y-auto space-y-3 pr-4 custom-scroll"></div>
+                    <div class="flex justify-end pt-4"><button onclick="closeRemarkModal()" class="px-10 py-4 bg-white/5 text-white/40 hover:text-white rounded-2xl font-black text-[10px] uppercase transition-all">Done</button></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shutdown Warning Modal (Glass) -->
+    <div id="shutdown-modal" class="fixed inset-0 z-[100] hidden flex-col items-center justify-center bg-pink-900/60 p-4 fade-in backdrop-blur-xl">
+        <div class="glass-card rounded-[3rem] shadow-2xl max-w-sm w-full p-10 text-center flex flex-col items-center border-white/20">
+            <div class="h-20 w-20 bg-pink-500/20 rounded-full flex items-center justify-center mb-6">
+                <svg class="h-10 w-10 text-pink-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-black text-white mb-2">SERVER EXIT</h2>
+            <p class="text-white/60 font-medium mb-10 text-xs leading-relaxed uppercase tracking-widest">Server shutdown initiated. Verify changes immediately.</p>
+            <div class="w-full flex flex-col gap-3">
+                <button onclick="extendShutdown()" class="py-4 px-6 bg-white text-indigo-600 shadow-xl rounded-2xl font-black text-[10px] uppercase transform transition-all hover:scale-105 active:scale-95">Abstain / Extend</button>
+                <button onclick="acceptShutdown()" class="py-4 px-6 bg-white/10 text-white/40 hover:text-white rounded-2xl font-black text-[10px] uppercase transition-all">Terminate Now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Row Modal (Glass) -->
+    <div id="edit-row-modal" class="fixed inset-0 z-[110] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-md"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto flex min-h-full items-center justify-center p-4">
+            <div class="relative glass-card rounded-[3rem] shadow-2xl w-full max-w-lg fade-in border-white/20">
+                <div class="bg-white/10 px-10 py-6 rounded-t-[3rem] border-b border-white/10 flex justify-between items-center">
+                    <h3 class="text-[10px] font-black text-white/60 uppercase tracking-[0.2em]">Record Editor</h3>
+                    <button onclick="closeEditModal()" class="text-white/40 hover:text-white p-2 bg-white/5 rounded-full"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                </div>
+                <form id="edit-row-form" onsubmit="saveEditedRow(event)" class="p-10 space-y-8">
+                    <input type="hidden" id="edit-row-idx">
+                    <input type="hidden" id="edit-sheet-name">
+                    <input type="hidden" id="server-edit-mobile">
+                    <div id="edit-fields-container" class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[50vh] overflow-y-auto pr-4 custom-scroll">
+                        <!-- Dynamic inputs injected here -->
+                    </div>
+                    <div class="flex justify-between items-center pt-8 border-t border-white/10">
+                        <button type="button" id="delete-btn-modal" class="px-6 py-3 bg-pink-500/10 text-pink-500 rounded-xl hover:bg-pink-500 hover:text-white font-black text-[9px] uppercase transition-all flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            Delete
+                        </button>
+                        <div class="flex gap-3">
+                            <button type="button" onclick="closeEditModal()" class="px-6 py-3 bg-white/5 text-white/40 hover:text-white rounded-xl font-bold text-[10px] uppercase transition-all">Cancel</button>
+                            <button type="submit" class="px-8 py-3 bg-indigo-500 text-white rounded-xl hover:bg-indigo-400 font-black text-[10px] uppercase shadow-lg shadow-indigo-500/20 transition-all">Apply Changes</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div id="toast" class="fixed bottom-4 right-4 z-50 transform transition-all duration-300 translate-y-20 opacity-0 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-xl flex items-center">
+        <svg id="toast-icon" class="w-5 h-5 mr-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span id="toast-message" class="font-medium text-sm"></span>
+    </div>
+
+    <!-- Offline Banner -->
+    <div id="offline-banner" class="hidden fixed top-16 w-full z-40 bg-rose-500 text-white text-center py-2 text-sm font-semibold shadow-md">
+        You are offline. Please reconnect to mark attendance.
+    </div>
+
+    <script>
+        // BUG-3: Auth is Flask-session based. Verify via /api/auth/status on load.
+        async function doLogout() {
+            // ae_jwt drives login.html's silent offline auto-resume — clear it
+            // too, otherwise the session cookie gets dropped but the next
+            // /login load mints a fresh one from this token and signs the
+            // user right back in.
+            localStorage.removeItem('loggedIn');
+            localStorage.removeItem('username');
+            localStorage.removeItem('role');
+            localStorage.removeItem('ae_jwt');
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/login';
+        }
+
+        document.addEventListener('DOMContentLoaded', async function () {
+            try {
+                const r = await fetch('/api/auth/status');
+                if (r.status === 401) { window.location.href = '/login'; return; }
+            } catch (_) {}
+        });
+
+        // --- SHARED STATE ---
+        let tunnelUrl = "";
+        let lastGlobalSessionId = null;
+        let filtersLocked = false; // Prevents background sync from overwriting local view once user picks something manually.
+        let isManualDateSelection = false;
+        let currentMode = 'LIVE'; // 'LIVE' or 'EDITOR'
+        let lastEditorSheet = null;
+        let lastMtime = 0;
+        let hostCentres = [];
+        let hostSelectedCentreId = 'centre_b_Base';
+        let hostCentreContextPromise = null;
+        window.AttendEaseBatchState = { id: null, name: "" };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSessionDropdown();
+            updateHostBatchActionState();
+            updateLiveCount();
+            fetchRecentLogs();
+            fetchDevices();
+            checkTunnelUrl();
+            setupMobileAutofill();
+            loadHostCentreSwitcher();
+            loadCentreRegisterers();
+            loadEditorSheets(); // Load the Choose List dropdown
+            fetchRemarks(); // Load remark dropdown options
+            fetchAddresses();
+
+            const attendanceDateInput = document.getElementById('attendance-date');
+            if (attendanceDateInput) {
+                attendanceDateInput.addEventListener('change', () => {
+                    updateLiveCount();
+                    fetchAndShowTable();
+                });
+            }
+
+            setInterval(syncWithGlobalSession, 500);
+            setInterval(fetchRecentLogs, 1000);
+            setInterval(fetchDevices, 3000);
+            setInterval(loadCentreRegisterers, 10000);
+            setInterval(async () => {
+                try {
+                    const r = await fetch('/api/get_last_update');
+                    const d = await r.json();
+                    if (d.mtime > lastMtime) {
+                        lastMtime = d.mtime;
+                        if (currentMode === 'LIVE') {
+                            updateLiveCount();
+                            fetchAndShowTable();
+                        } else if (currentMode === 'EDITOR' && currentEditorSheet) {
+                            fetchSheetContent(currentEditorSheet);
+                        }
+                    }
+                } catch (e) {}
+            }, 500);
+            setInterval(loadSessionDropdown, 5000);
+            setInterval(loadEditorSheets, 10000); // Refresh sheet list occasionally
+            
+            window.addEventListener('online', handleOnline);
+            window.addEventListener('offline', handleOffline);
+            if (!navigator.onLine) handleOffline();
+
+            // Same SW as registerer.html/login's offline flow — one origin,
+            // one service worker. Two competing SWs (this used to register
+            // /sw.js) each deleted the other's cache on activate(), which is
+            // why offline mode would randomly stop working across sessions.
+            if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
+        });
+
+        // --- CLOUDFLARE TUNNEL ---
+        async function checkTunnelUrl() {
+            try {
+                const res = await fetch('/api/tunnel_url');
+                const data = await res.json();
+                if (data.url) {
+                    tunnelUrl = data.url;
+                    document.getElementById('tunnel-link').innerText = tunnelUrl;
+                    document.getElementById('tunnel-link').href = tunnelUrl;
+                    document.getElementById('tunnel-banner').classList.remove('hidden');
+                }
+            } catch (e) {}
+        }
+        function copyTunnelLink() { if (tunnelUrl) { navigator.clipboard.writeText(tunnelUrl); showToast("Public link copied!"); } }
+        function shareViaWhatsApp() {
+            if (!tunnelUrl) { showToast("Link not ready yet!", true); return; }
+            const msg = encodeURIComponent("Join attendance here: " + tunnelUrl + "/register");
+            window.open("https://wa.me/?text=" + msg, "_blank");
+        }
+        function shareViaEmail() {
+            if (!tunnelUrl) { showToast("Link not ready yet!", true); return; }
+            const subject = encodeURIComponent("Attendance Registration Link");
+            const body = encodeURIComponent("Please register your attendance using this link:\n\n" + tunnelUrl + "/register");
+            window.location.href = "mailto:?subject=" + subject + "&body=" + body;
+        }
+        function shareViaSMS() {
+            if (!tunnelUrl) { showToast("Link not ready yet!", true); return; }
+            const msg = encodeURIComponent("Attendance link: " + tunnelUrl + "/register");
+            window.location.href = "sms:?body=" + msg;
+        }
+
+        // --- MINI LOGS ---
+        let _recentLogsSignature = null;
+        async function fetchRecentLogs() {
+            try {
+                const res = await fetch('/api/recent_logs');
+                const logs = await res.json();
+                if (!Array.isArray(logs)) return;
+                const signature = logs.join('\n');
+                if (signature === _recentLogsSignature) return;
+                _recentLogsSignature = signature;
+                const container = document.getElementById('mini-log-content');
+                if (logs.length > 0) {
+                    container.innerHTML = logs.map(line => `<div class="mb-0.5">${line}</div>`).join('');
+                    container.scrollTop = container.scrollHeight;
+                }
+            } catch (e) {}
+        }
+
+        // --- DEVICE MANAGEMENT ---
+        async function fetchDevices() {
+            try {
+                const res = await fetch('/api/devices');
+                const devices = await res.json();
+                const tbody = document.getElementById('device-list-body');
+                let html = "";
+                for (const [ip, info] of Object.entries(devices)) {
+                    const isActive = info.active;
+                    const isSelf = info.is_host;
+                    const targetStatus = isActive ? 'false' : 'true';
+                    
+                    html += `
+                        <tr class="text-[10px]">
+                            <td class="px-3 py-2">
+                                <div class="font-bold text-slate-700">${info.name} ${isSelf ? '(Admin)' : ''}</div>
+                                <div class="text-slate-400 font-mono">${ip}</div>
+                                <div class="text-slate-300">Seen: ${info.last_seen}</div>
+                            </td>
+                            <td class="px-3 py-2 text-right">
+                                <button onclick="toggleDevice('${ip}', ${targetStatus})" 
+                                    ${isSelf ? 'disabled' : ''}
+                                    class="relative inline-flex h-4 w-8 items-center rounded-full transition-colors focus:outline-none ${isActive ? 'bg-emerald-500' : 'bg-slate-300'} ${isSelf ? 'opacity-50 cursor-not-allowed' : ''}">
+                                    <span class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${isActive ? 'translate-x-4' : 'translate-x-1'}"></span>
+                                </button>
+                                <div class="mt-1 font-bold ${isActive ? 'text-emerald-600' : 'text-rose-500'}">
+                                    ${isActive ? 'Active' : 'Blocked'}
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }
+                tbody.innerHTML = html || '<tr><td colspan="2" class="px-3 py-4 text-center text-xs text-slate-400">No devices...</td></tr>';
+            } catch (e) {}
+        }
+
+        async function toggleDevice(ip, newStatus) {
+            try {
+                const res = await fetch('/api/devices', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ ip: ip, active: Boolean(newStatus) })
+                });
+                if (res.ok) { showToast(`Device updated`); fetchDevices(); }
+            } catch (e) { showToast("Network error", true); }
+        }
+
+        // --- SESSION LOGIC ---
+        function getHostBatchState() {
+            return window.AttendEaseBatchState || { id: null, name: "" };
+        }
+
+        function updateHostBatchActionState() {
+            const btn = document.getElementById('host-new-session-btn');
+            if (!btn) return;
+            const batchState = getHostBatchState();
+            const hasBatch = !!(batchState && batchState.id);
+            btn.disabled = !hasBatch;
+            btn.title = hasBatch
+                ? 'Create a session under the selected batch'
+                : 'Please select a batch before creating a session';
+        }
+
+        function setSelectedBatchFromSync(batchId, batchName) {
+            const select = document.getElementById('batch-select');
+            const normalizedId = batchId ? String(batchId) : "";
+            const normalizedName = batchName ? String(batchName) : "";
+
+            window.AttendEaseBatchState = {
+                id: normalizedId || null,
+                name: normalizedName || ""
+            };
+
+            if (select) {
+                if (!normalizedId) {
+                    select.value = "";
+                } else {
+                    const match = Array.from(select.options).find(opt => {
+                        return String(opt.dataset && opt.dataset.batchId ? opt.dataset.batchId : "") === normalizedId ||
+                               String(opt.value || "") === normalizedName;
+                    });
+                    if (match) {
+                        select.value = match.value;
+                    } else if (normalizedName) {
+                        select.value = normalizedName;
+                    }
+                }
+            }
+
+            updateHostBatchActionState();
+        }
+
+        function updateHostBatchStateFromSelect(selectEl) {
+            const option = selectEl && selectEl.selectedOptions && selectEl.selectedOptions[0] ? selectEl.selectedOptions[0] : null;
+            const selectedValue = selectEl ? String(selectEl.value || "") : "";
+            const batchId = option && option.dataset ? String(option.dataset.batchId || "") : "";
+            const batchName = option ? String((option.textContent || option.value || "").trim()) : "";
+
+            if (!selectedValue || !batchId) {
+                window.AttendEaseBatchState = { id: null, name: "" };
+            } else {
+                window.AttendEaseBatchState = { id: batchId, name: batchName };
+            }
+
+            updateHostBatchActionState();
+            return window.AttendEaseBatchState;
+        }
+
+        async function onHostBatchSelected(selectEl) {
+            const state = updateHostBatchStateFromSelect(selectEl);
+            const batchId = state.id || null;
+            const batchName = state.name || "";
+
+            try {
+                if (window.AttendEaseSync && typeof window.AttendEaseSync.onBatchSelected === 'function') {
+                    await window.AttendEaseSync.onBatchSelected(batchId, batchName);
+                } else {
+                    await fetch('/api/set_session', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            batch_id: batchId,
+                            batch_name: batchName,
+                            session_id: ""
+                        })
+                    });
+                }
+            } catch (e) {}
+
+            if (!batchId) {
+                loadSessionDropdown(null, false);
+                updateLiveCount();
+                if (currentMode === 'SERVER_LIST') {
+                    fetchServerData();
+                } else {
+                    fetchAndShowTable();
+                }
+                updateDeleteButton();
+                return;
+            }
+
+            loadSessionDropdown(batchId, false);
+            updateLiveCount();
+            if (currentMode === 'SERVER_LIST') {
+                fetchServerData();
+            } else {
+                fetchAndShowTable();
+            }
+            updateDeleteButton();
+        }
+
+        // Same flicker fix as fetchAndShowTable: this was called every 5s
+        // unconditionally, plus on every real session change, and rebuilt the
+        // whole <select> (innerHTML wipe) even when the session list hadn't
+        // changed at all — that's what read as the dropdown "flickering".
+        let _sessionDropdownSignature = null;
+        async function loadSessionDropdown(batchId = null, preserveCurrentSelection = true) {
+            const batchSel = document.getElementById('batch-select');
+            const sel = document.getElementById('session-select');
+            if (!sel) return;
+
+            const selectedOption = batchSel && batchSel.selectedOptions && batchSel.selectedOptions[0] ? batchSel.selectedOptions[0] : null;
+            const batchState = getHostBatchState();
+            const resolvedBatchId = batchId || batchState.id || (selectedOption && selectedOption.dataset ? selectedOption.dataset.batchId || "" : "");
+
+            if (!resolvedBatchId) {
+                const signature = 'no-batch';
+                if (signature !== _sessionDropdownSignature) {
+                    _sessionDropdownSignature = signature;
+                    sel.innerHTML = '<option value="">Select a batch to view sessions</option>';
+                    sel.disabled = true;
+                    sel.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+                updateDeleteButton();
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/sessions_by_batch/${encodeURIComponent(resolvedBatchId)}`);
+                const sessions = await res.json();
+                const currentVal = sel.value;
+                const signature = JSON.stringify([resolvedBatchId, sessions]);
+                if (signature !== _sessionDropdownSignature) {
+                    _sessionDropdownSignature = signature;
+                    sel.innerHTML = '<option value="">-- Choose Session --</option>';
+                    sessions.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s; opt.textContent = s;
+                        sel.appendChild(opt);
+                    });
+                    sel.disabled = false;
+                    sel.classList.remove('opacity-50', 'cursor-not-allowed');
+                    if (preserveCurrentSelection && sessions.includes(currentVal)) sel.value = currentVal;
+                }
+            } catch(e) {
+                const signature = 'error';
+                if (signature !== _sessionDropdownSignature) {
+                    _sessionDropdownSignature = signature;
+                    sel.innerHTML = '<option value="">Select a batch to view sessions</option>';
+                    sel.disabled = true;
+                    sel.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+            }
+            updateDeleteButton();
+        }
+
+        // --- SHARED SYNC LOGIC (P4.3) ---
+        async function syncWithGlobalSession() {
+            await aesync.syncWithGlobalSession(syncCallbacks);
+        }
+
+        async function onSessionSelected(sessionId) {
+            await aesync.onSessionSelected(sessionId, {
+                onSuccess: (sid) => {
+                    showToast(`Session switched`);
+                    loadSessionDropdown();
+                    updateLiveCount();
+                    if (currentMode === 'SERVER_LIST') {
+                        fetchServerData();
+                    } else {
+                        fetchAndShowTable();
+                    }
+                    updateDeleteButton();
+                }
+            });
+        }
+
+        function setActionButtonEnabled(button, enabled) {
+            if (!button) return;
+            button.disabled = !enabled;
+            if (enabled) {
+                button.classList.remove('opacity-40', 'cursor-not-allowed', 'pointer-events-none');
+            } else {
+                button.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none');
+            }
+        }
+
+        function updateDeleteButton() {
+            const sel = document.getElementById('session-select');
+            const delBtn = document.getElementById('delete-session-btn');
+            const sessionRenameBtn = document.getElementById('host-rename-session-btn');
+            const batchDelBtn = document.getElementById('host-delete-batch-btn');
+            const batchRenameBtn = document.getElementById('host-rename-batch-btn');
+            const batchState = getHostBatchState();
+            if (!sel || !delBtn) return;
+            delBtn.classList.add('flex');
+            setActionButtonEnabled(delBtn, !!sel.value);
+            setActionButtonEnabled(sessionRenameBtn, !!sel.value);
+            setActionButtonEnabled(batchDelBtn, !!(batchState && batchState.id));
+            setActionButtonEnabled(batchRenameBtn, !!(batchState && batchState.id));
+            updateHostBatchActionState();
+        }
+
+        async function deleteCurrentSession() {
+            const sid = document.getElementById('session-select').value;
+            if (!sid || !confirm("Delete selected session? Attendance rows for this session may be removed. Student master records will not be deleted.")) return;
+            try {
+                const res = await fetch('/api/delete_session', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ session_id: sid })
+                });
+                if (res.ok) { showToast("Session deleted"); loadSessionDropdown(); }
+            } catch(e) {}
+        }
+
+        function openNewSessionModal() {
+            const batchState = getHostBatchState();
+            if (!batchState.id) {
+                showToast("Please select a batch before creating a session.", true);
+                return;
+            }
+            const modal = document.getElementById('new-session-modal');
+            const input = document.getElementById('new-session-name');
+            if (modal) modal.classList.remove('hidden');
+            if (input) {
+                input.value = '';
+                setTimeout(() => input.focus(), 50);
+            }
+        }
+        function closeNewSessionModal() { document.getElementById('new-session-modal').classList.add('hidden'); }
+        async function createNewSession() {
+            const name = document.getElementById('new-session-name').value.trim();
+            if (!name) return;
+            const batchState = getHostBatchState();
+            if (!batchState.id) {
+                showToast("Please select a batch before creating a session.", true);
+                return;
+            }
+            try {
+                const res = await fetch('/api/create_session', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ session_name: name, batch_id: batchState.id })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    closeNewSessionModal();
+                    loadSessionDropdown(batchState.id, false);
+                    const newSessionId = data.sheet_name || data.session_id || name;
+                    const sel = document.getElementById('session-select');
+                    if (sel) sel.value = newSessionId;
+                    await onSessionSelected(newSessionId);
+                    updateDeleteButton();
+                    updateLiveCount();
+                    fetchAndShowTable();
+                }
+            } catch(e) {}
+        }
+
+        function openHostNewBatchModal() {
+            const modal = document.getElementById('host-new-batch-modal');
+            const input = document.getElementById('host-new-batch-name');
+            if (modal) modal.classList.remove('hidden');
+            if (input) {
+                input.value = '';
+                setTimeout(() => input.focus(), 50);
+            }
+        }
+
+        function closeHostNewBatchModal() {
+            const modal = document.getElementById('host-new-batch-modal');
+            const input = document.getElementById('host-new-batch-name');
+            if (modal) modal.classList.add('hidden');
+            if (input) input.value = '';
+        }
+
+        function getHostSelectedBatchContext() {
+            const batchSel = document.getElementById('batch-select');
+            const option = batchSel && batchSel.selectedOptions && batchSel.selectedOptions[0] ? batchSel.selectedOptions[0] : null;
+            const batchState = getHostBatchState();
+            return {
+                batch_id: batchState.id || (option && option.dataset ? String(option.dataset.batchId || '') : ''),
+                batch_name: batchState.name || (option ? String((option.textContent || option.value || '').trim()) : '')
+            };
+        }
+
+        async function createHostNewBatch() {
+            const input = document.getElementById('host-new-batch-name');
+            const name = input ? input.value.trim() : '';
+            if (!name) {
+                showToast("Enter batch name", true);
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/batches', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name, category: hostCategory() })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    closeHostNewBatchModal();
+                    showToast(`Batch created: ${name}`);
+                    setTimeout(() => window.location.reload(), 350);
+                } else {
+                    showToast(data.error || 'Failed to create batch', true);
+                }
+            } catch (e) {
+                showToast('Failed to create batch', true);
+            }
+        }
+
+        function openHostRenameBatchModal() {
+            const modal = document.getElementById('host-rename-batch-modal');
+            const currentInput = document.getElementById('host-rename-batch-current');
+            const nameInput = document.getElementById('host-rename-batch-name');
+            const current = getHostSelectedBatchContext();
+            if (!current.batch_id) {
+                showToast("Please select a batch before renaming it.", true);
+                return;
+            }
+            if (modal) modal.classList.remove('hidden');
+            if (currentInput) currentInput.value = current.batch_name || '';
+            if (nameInput) nameInput.value = current.batch_name || '';
+            setTimeout(() => nameInput && nameInput.focus(), 50);
+        }
+
+        function closeHostRenameBatchModal() {
+            const modal = document.getElementById('host-rename-batch-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function renameHostBatch() {
+            const current = getHostSelectedBatchContext();
+            const nameInput = document.getElementById('host-rename-batch-name');
+            const newName = nameInput ? nameInput.value.trim() : '';
+            if (!current.batch_id) {
+                showToast("Please select a batch before renaming it.", true);
+                return;
+            }
+            if (!newName) {
+                showToast("Enter a batch name", true);
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/batches/${encodeURIComponent(current.batch_id)}/rename`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                const data = await res.json();
+                if (res.ok && data.ok) {
+                    closeHostRenameBatchModal();
+                    showToast(data.message || 'Batch renamed');
+                    window.location.reload();
+                } else {
+                    showToast(data.message || 'Failed to rename batch', true);
+                }
+            } catch (e) {
+                showToast('Network error while renaming batch', true);
+            }
+        }
+
+        async function openHostRenameSessionModal() {
+            const sel = document.getElementById('session-select');
+            const sessionId = sel ? sel.value : '';
+            if (!sessionId) {
+                showToast("Please select a session before renaming it.", true);
+                return;
+            }
+            const modal = document.getElementById('host-rename-session-modal');
+            const currentInput = document.getElementById('host-rename-session-current');
+            const nameInput = document.getElementById('host-rename-session-name');
+            // Look up the true display_name (may be the full untruncated name even
+            // when session_id — the Excel tab / sheet name — was shortened to fit).
+            let currentName = sessionId;
+            try {
+                const res = await fetch(`/api/list_sessions`);
+                const sessions = await res.json();
+                const match = Array.isArray(sessions) ? sessions.find(s => s.session_id === sessionId) : null;
+                if (match) currentName = match.display_name || sessionId;
+            } catch (e) {}
+            if (modal) modal.classList.remove('hidden');
+            if (currentInput) currentInput.value = currentName;
+            if (nameInput) nameInput.value = currentName;
+            setTimeout(() => nameInput && nameInput.focus(), 50);
+        }
+
+        function closeHostRenameSessionModal() {
+            const modal = document.getElementById('host-rename-session-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function renameHostSession() {
+            const sel = document.getElementById('session-select');
+            const sessionId = sel ? sel.value : '';
+            const nameInput = document.getElementById('host-rename-session-name');
+            const newName = nameInput ? nameInput.value.trim() : '';
+            if (!sessionId) {
+                showToast("Please select a session before renaming it.", true);
+                return;
+            }
+            if (!newName) {
+                showToast("Enter a session name", true);
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/rename`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                const data = await res.json();
+                if (res.ok && data.ok) {
+                    closeHostRenameSessionModal();
+                    showToast(data.message || 'Session renamed');
+                    loadSessionDropdown();
+                } else {
+                    showToast(data.message || 'Failed to rename session', true);
+                }
+            } catch (e) {
+                showToast('Network error while renaming session', true);
+            }
+        }
+
+        // --- ATTENDANCE FORM & AUTOFILL ---
+        let searchController;
+        let suggestionIndex = -1;
+
+        function setupMobileAutofill() {
+            const mobileInput = document.getElementById('mobile');
+            const spinner = document.getElementById('loading-spinner');
+            if (!mobileInput) return;
+            let debounceTimer;
+
+            mobileInput.addEventListener('input', async function() {
+                const val = this.value.trim();
+                const suggestionsBox = document.getElementById('mobile-suggestions');
+                suggestionIndex = -1;
+                
+                // --- Custom Autocomplete Suggester ---
+                if (val.length >= 1) {
+                    if (searchController) searchController.abort();
+                    searchController = new AbortController();
+
+                    try {
+                        const res = await fetch(`/api/search_mobile?q=${val}`, { signal: searchController.signal });
+                        const suggestions = await res.json();
+                        
+                        if (suggestions.length > 0) {
+                            suggestionsBox.innerHTML = suggestions.map((s, idx) => `
+                                <div id="admin-sugg-${idx}" onclick="selectMobile('${s.mobile}')" class="suggestion-item px-3 py-2 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0 flex justify-between items-center group transition-colors">
+                                    <span class="font-bold text-slate-700 font-mono text-xs">${s.mobile}</span>
+                                    <span class="text-[9px] font-black text-slate-400 uppercase group-hover:text-indigo-500">${s.name}</span>
+                                </div>
+                            `).join('');
+                            suggestionsBox.classList.remove('hidden');
+                        } else {
+                            suggestionsBox.innerHTML = '';
+                            suggestionsBox.classList.add('hidden');
+                        }
+                    } catch(e) {
+                        if (e.name === 'AbortError') return;
+                    }
+                } else {
+                    suggestionsBox.classList.add('hidden');
+                }
+
+                clearTimeout(debounceTimer);
+                if (val.length >= 8) {
+                    spinner.classList.remove('hidden');
+                    debounceTimer = setTimeout(async () => {
+                        try {
+                            const sessionSelected = document.getElementById('session-select').value;
+                            const res = await fetch(`/api/get_user/${val}`);
+                            let userExists = false;
+                            if (res.ok) {
+                                const user = await res.json();
+                                document.getElementById('name').value = user.name || "";
+                                document.getElementById('address').value = user.address || "";
+                                document.getElementById('occupation').value = user.occupation || "";
+                                document.getElementById('rounds').value = user.rounds || "";
+                                document.getElementById('remark').value = user.remark || "";
+                                if(user.remark) selectRemark(user.remark);
+                                else {
+                                    document.getElementById('remark').value = "";
+                                }
+                                if(user.address) selectAddress(user.address);
+                                else {
+                                    document.getElementById('address').value = "";
+                                }
+                                document.getElementById('form-status').innerText = "User Found";
+                                userExists = true;
+                            } else {
+                                resetFormFields(false);
+                                document.getElementById('form-status').innerText = "New Entry";
+                            }
+                            
+                            // Check if user is in the selected session
+                            const btn = document.getElementById('submit-btn');
+                            if (sessionSelected && userExists) {
+                                const checkRes = await fetch(`/api/check_session_user/${sessionSelected}/${val}`);
+                                if (checkRes.ok) {
+                                    const checkData = await checkRes.json();
+                                    if (checkData.in_session) {
+                                        btn.innerText = "MARK PRESENT";
+                                        btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
+                                        btn.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+                                    } else {
+                                        btn.innerText = "ADD STUDENT";
+                                        btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+                                        btn.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
+                                    }
+                                }
+                            } else {
+                                btn.innerText = "ADD STUDENT";
+                                btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+                                btn.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
+                            }
+                        } catch (err) {} finally { spinner.classList.add('hidden'); }
+                    }, 500);
+                } else {
+                    resetFormFields(false);
+                    document.getElementById('form-status').innerText = "Ready";
+                }
+            });
+
+            // Close suggestions on click outside
+            document.addEventListener('click', (e) => {
+                const box = document.getElementById('mobile-suggestions');
+                const input = document.getElementById('mobile');
+                if (!box.contains(e.target) && e.target !== input) {
+                    box.classList.add('hidden');
+                }
+            });
+        }
+
+        function selectMobile(mobile) {
+            const mobileInput = document.getElementById('mobile');
+            mobileInput.value = mobile;
+            document.getElementById('mobile-suggestions').classList.add('hidden');
+            // Trigger the input event manually to start autofill
+            mobileInput.dispatchEvent(new Event('input'));
+        }
+
+        function onMobileKeydown(e) {
+            const suggestionsBox = document.getElementById('mobile-suggestions');
+            if (suggestionsBox.classList.contains('hidden')) return;
+
+            const items = document.querySelectorAll('.suggestion-item');
+            if (items.length === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                suggestionIndex = (suggestionIndex + 1) % items.length;
+                updateAdminSuggestionHighlight(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                suggestionIndex = (suggestionIndex - 1 + items.length) % items.length;
+                updateAdminSuggestionHighlight(items);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (suggestionIndex >= 0 && suggestionIndex < items.length) {
+                    items[suggestionIndex].click();
+                }
+            }
+        }
+
+        function updateAdminSuggestionHighlight(items) {
+            items.forEach((item, idx) => {
+                if (idx === suggestionIndex) {
+                    item.classList.add('bg-indigo-100');
+                    item.scrollIntoView({ block: 'nearest' });
+                } else {
+                    item.classList.remove('bg-indigo-100');
+                }
+            });
+        }
+
+        async function submitAttendance(e) {
+            e.preventDefault();
+            const sessionSelected = document.getElementById('session-select').value;
+            if (!sessionSelected) return showToast('Select a session!', true);
+            const sessionSelect = document.getElementById('session-select');
+            const checkedOption = sessionSelect ? sessionSelect.querySelector('option:checked') : null;
+            const batchSelect = document.getElementById('batch-select');
+            const batchId = (window.AttendEaseBatchState && window.AttendEaseBatchState.id) || (batchSelect && batchSelect.value) || "";
+            const batchName = (window.AttendEaseBatchState && window.AttendEaseBatchState.name) || (batchSelect && batchSelect.selectedOptions[0] ? batchSelect.selectedOptions[0].textContent : '') || '';
+
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+
+            const formData = {
+                mobile: document.getElementById('mobile').value.trim(),
+                name: document.getElementById('name').value.trim(),
+                address: document.getElementById('address').value.trim(),
+                occupation: document.getElementById('occupation').value.trim(),
+                rounds: document.getElementById('rounds').value.trim(),
+                remark: document.getElementById('remark').value.trim(),
+                date: document.getElementById('attendance-date').value,
+                session_id: sessionSelected,
+                session_name: (checkedOption && checkedOption.textContent && checkedOption.textContent.trim()) || sessionSelected,
+                batch_id: batchId,
+                batch_name: batchName,
+            };
+            if (!navigator.onLine) {
+                showToast("You are offline. Please reconnect to mark attendance.", true);
+                btn.disabled = false;
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/mark_attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                const result = await res.json();
+                if (res.ok) { 
+                    showToast("Success"); 
+                    resetFormFields(true); 
+                    updateLiveCount(); 
+                } else {
+                    showToast(result.error || "Error", true);
+                }
+            } catch (err) { showToast("Error", true); } finally { btn.disabled = false; }
+        }
+
+        function resetFormFields(includeMobile = true) {
+            if(includeMobile) { document.getElementById('mobile').value = ""; document.getElementById('form-status').innerText = "Ready"; }
+            document.getElementById('name').value = "";
+            document.getElementById('address').value = "";
+            document.getElementById('occupation').value = "";
+            document.getElementById('rounds').value = "";
+            document.getElementById('remark').value = "";
+        }
+
+        // --- ADDRESS DROPDOWN LOGIC ---
+        let allAddresses = [];
+        async function fetchAddresses() {
+            try {
+                const res = await fetch('/api/addresses');
+                allAddresses = await res.json();
+                renderAddresses();
+            } catch (e) { console.error('Failed to fetch addresses', e); }
+        }
+        function renderAddresses(filter = "") {
+            const container = document.getElementById('address-items-container');
+            if(!container) return;
+            const lowerFilter = filter.toLowerCase();
+            const filtered = allAddresses.filter(r => r.text.toLowerCase().includes(lowerFilter));
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="px-4 py-3 text-[11px] text-slate-400 text-center font-bold">No matching addresses</div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(r => {
+                const safeText = r.text.replace(/'/g, "\\'");
+                return `<div class="px-4 py-2.5 hover:bg-slate-50 cursor-pointer border-b border-slate-50 text-sm text-slate-700 font-bold" onclick="selectAddress('${safeText}')">
+                    ${r.text}
+                </div>`;
+            }).join('');
+        }
+        function showAddresses() {
+            const list = document.getElementById('address-list');
+            const input = document.getElementById('address');
+            if (!list) return;
+            list.classList.remove('hidden');
+            renderAddresses(input ? input.value : "");
+        }
+        function hideAddresses() {
+            const list = document.getElementById('address-list');
+            if (list) list.classList.add('hidden');
+        }
+        function filterAddresses() {
+            const input = document.getElementById('address');
+            const list = document.getElementById('address-list');
+            renderAddresses(input ? input.value : "");
+            if (list) list.classList.remove('hidden');
+        }
+        function selectAddress(text) {
+            const input = document.getElementById('address');
+            if (input) input.value = text;
+            hideAddresses();
+        }
+
+        // --- REMARKS DROPDOWN LOGIC ---
+        let allRemarks = [];
+        async function fetchRemarks() {
+            try {
+                const res = await fetch('/api/remarks');
+                allRemarks = await res.json();
+                renderRemarks();
+            } catch (e) { console.error('Failed to fetch remarks', e); }
+        }
+        function renderRemarks(filter = "") {
+            const container = document.getElementById('remarks-items-container');
+            if(!container) return;
+            const lowerFilter = filter.toLowerCase();
+            const filtered = allRemarks.filter(r => r.text.toLowerCase().includes(lowerFilter));
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="px-4 py-3 text-[11px] text-slate-400 text-center font-bold">No matching remarks</div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(r => {
+                const safeText = r.text.replace(/'/g, "\\'");
+                return `<div class="px-4 py-2.5 hover:bg-slate-50 cursor-pointer border-b border-slate-50 text-sm text-slate-700 font-bold" onclick="selectRemark('${safeText}')">
+                    ${r.text}
+                </div>`;
+            }).join('');
+        }
+        function showRemarks() {
+            const list = document.getElementById('remarks-list');
+            const input = document.getElementById('remark');
+            if (!list) return;
+            list.classList.remove('hidden');
+            renderRemarks(input ? input.value : "");
+        }
+        function hideRemarks() {
+            const list = document.getElementById('remarks-list');
+            if (list) list.classList.add('hidden');
+        }
+        function filterRemarks() {
+            const input = document.getElementById('remark');
+            const list = document.getElementById('remarks-list');
+            renderRemarks(input ? input.value : "");
+            if (list) list.classList.remove('hidden');
+        }
+        function selectRemark(text) {
+            const input = document.getElementById('remark');
+            if (input) input.value = text;
+            hideRemarks();
+        }
+        document.addEventListener('click', (e) => {
+            const container = document.getElementById('remark-dropdown-container');
+            if (container && !container.contains(e.target)) {
+                const list = document.getElementById('remarks-list');
+                if(list) list.classList.add('hidden');
+            }
+            const addrContainer = document.getElementById('address-dropdown-container');
+            if (addrContainer && !addrContainer.contains(e.target)) {
+                const list = document.getElementById('address-list');
+                if(list) list.classList.add('hidden');
+            }
+        });
+
+        // --- DATABASE EDITOR LOGIC ---
+
+        // Same guard as loadSessionDropdown above. This runs on a 10s timer and used to
+        // wipe + rebuild the <select> on every single pass. On Android WebView a <select>'s
+        // options back a NATIVE picker, so replacing them while the picker is open makes the
+        // OS dismiss it instantly — that is the 2026-08-10 wrapper "flicker". Skip the DOM
+        // write entirely when the sheet list has not actually changed.
+        let _editorSheetsSignature = null;
+        async function loadEditorSheets() {
+            try {
+                const res = await fetch('/api/list_server_files');
+                const files = await res.json();
+                const select = document.getElementById('admin-sheet-editor-select');
+                if (!select) return;
+                const currentVal = select.value;
+                const signature = JSON.stringify(files.map(f => f.name));
+                if (signature === _editorSheetsSignature) return;
+                _editorSheetsSignature = signature;
+
+                // Keep the LIVE option
+                select.innerHTML = '<option value="LIVE">-- Current Session --</option>';
+                files.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f.name;
+                    opt.textContent = f.name;
+                    select.appendChild(opt);
+                });
+                select.value = currentVal;
+            } catch (e) {}
+        }
+
+        async function toggleEditorMode(val) {
+            if (val === 'LIVE') {
+                currentMode = 'LIVE';
+                currentEditorSheet = null;
+                document.getElementById('live-indicator').classList.remove('hidden');
+                document.getElementById('editor-indicator').classList.add('hidden');
+                fetchAndShowTable();
+            } else if (val === 'SERVER_LIST') {
+                currentMode = 'SERVER_LIST';
+                currentEditorSheet = null;
+                document.getElementById('live-indicator').classList.add('hidden');
+                document.getElementById('editor-indicator').remove('hidden');
+                fetchServerData();
+            } else {
+                currentMode = 'EDITOR';
+                currentEditorSheet = val;
+                document.getElementById('live-indicator').classList.add('hidden');
+                document.getElementById('editor-indicator').classList.remove('hidden');
+                fetchSheetContent(val);
+            }
+        }
+
+        async function fetchServerData() {
+            try {
+                const sessionId = document.getElementById('session-select').value;
+                const dateStr = document.getElementById('attendance-date').value;
+                const batch = document.getElementById('batch-select').value;
+
+                const url = new URL('/api/show_attendance', window.location.origin);
+                if (sessionId) url.searchParams.append('session_id', sessionId);
+                if (dateStr) url.searchParams.append('date', dateStr);
+                if (batch && batch !== '') url.searchParams.append('batch', batch);
+                url.searchParams.append('category', hostCategory());
+
+                const res = await fetch(url);
+                const result = await res.json();
+                if (!Array.isArray(result)) { showToast("Invalid server response", true); return; }
+                renderServerDataTable(result);
+            } catch (e) { showToast("Failed to load server data", true); }
+        }
+
+        function renderServerDataTable(data) {
+            const headerRow = document.getElementById('table-header');
+            const tbody = document.getElementById('attendees-table-body');
+
+            const headers = ['Name', 'Mobile', 'Address', 'Occupation', 'Rounds', 'Remark', 'Cheating'];
+
+            // Render Headers
+            headerRow.innerHTML = `<tr>${headers.map((h, i) => `<th class="px-6 py-3 text-left text-xs font-bold text-white/40 uppercase tracking-wider ${i === 0 ? 'sticky-col' : ''}">${h}</th>`).join('')}<th class="px-6 py-3 text-right text-xs font-bold text-white/40 uppercase tracking-wider">Actions</th></tr>`;
+
+            // Render Data
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${headers.length + 1}" class="px-6 py-10 text-center text-white/40">No records found.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map((row, idx) => {
+                const rowJson = JSON.stringify(row).replace(/"/g, '&quot;');
+                return `
+                    <tr class="hover:bg-white/5 transition-colors border-b border-white/5">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-white sticky-col">${row.name || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-white/60 font-mono">${row.mobile || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-white/60">${row.address || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-white/60">${row.occupation || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-black text-emerald-400">#${row.rounds || '0'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-white/40 italic">${row.remark || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-black ${row.cheating === 'Yes' ? 'text-rose-400' : 'text-emerald-400'}">${row.cheating || 'No'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <button onclick="openServerEditModal('${row.mobile}', '${row.name}', '${JSON.stringify(row).replace(/'/g, '&#39;').replace(/"/g, '&quot;')}')" class="p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded-lg transition-all border border-indigo-500/20">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            updateTopScroll();
+        }
+
+        function openServerEditModal(mobile, name, rowDataJson) {
+            const rowData = JSON.parse(rowDataJson.replace(/&#39;/g, "'").replace(/&quot;/g, '"'));
+            document.getElementById('edit-sheet-name').value = 'SERVER_DATA';
+            document.getElementById('server-edit-mobile').value = mobile;
+
+            const container = document.getElementById('edit-fields-container');
+            container.innerHTML = "";
+
+            const editableFields = ['name', 'address', 'occupation', 'rounds', 'remark', 'cheating'];
+            editableFields.forEach(key => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <label class="block text-[10px] font-black uppercase text-white/40 mb-1 tracking-widest">${key}</label>
+                    <input type="text" name="${key}" value="${rowData[key] !== null ? rowData[key] : ''}"
+                        class="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-xl text-white text-sm focus:ring-4 focus:ring-white/10 transition-all outline-none">
+                `;
+                container.appendChild(div);
+            });
+
+            document.getElementById('delete-btn-modal').onclick = () => {
+                if (confirm("Delete this attendance record?")) {
+                    deleteServerRecord(mobile);
+                    closeEditModal();
+                }
+            };
+
+            document.getElementById('edit-row-modal').classList.remove('hidden');
+        }
+
+        async function deleteServerRecord(mobile) {
+            try {
+                const res = await fetch('/api/delete_attendance_record', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ mobile: mobile })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast("Record deleted!");
+                    fetchServerData();
+                } else { showToast(result.error || "Delete failed", true); }
+            } catch (e) { showToast("Delete failed", true); }
+        }
+
+        async function fetchSheetContent(sheetName) {
+            try {
+                const res = await fetch(`/api/get_sheet_content/${encodeURIComponent(sheetName)}`);
+                const result = await res.json();
+                if (result.error) { showToast(result.error, true); return; }
+                renderEditorTable(result.headers, result.data, sheetName);
+            } catch (e) { showToast("Failed to load sheet", true); }
+        }
+
+        function renderEditorTable(headers, data, sheetName) {
+            const headerRow = document.getElementById('table-header');
+            const tbody = document.getElementById('attendees-table-body');
+            
+            // Render Headers
+            headerRow.innerHTML = `<tr>${headers.map((h, i) => `<th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider ${i === 0 ? 'sticky-col' : ''}">${h}</th>`).join('')}<th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th></tr>`;
+            
+            // Render Data
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${headers.length + 1}" class="px-6 py-10 text-center text-slate-400">Sheet is empty.</td></tr>`;
+                return;
+            }
+            
+            tbody.innerHTML = data.map(row => {
+                const rowJson = JSON.stringify(row).replace(/"/g, '&quot;');
+                return `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        ${headers.map((h, i) => `<td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 ${i === 0 ? 'sticky-col font-bold text-slate-900 border-r border-slate-100' : ''}">${row[h] !== null ? row[h] : ''}</td>`).join('')}
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button onclick="openEditModal('${sheetName}', ${row['_row_idx']}, '${rowJson}')" class="text-indigo-600 hover:text-indigo-900 font-bold mr-3">Edit</button>
+                            <button onclick="deleteRecord('${sheetName}', ${row['_row_idx']})" class="text-rose-600 hover:text-rose-900 font-bold">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            updateTopScroll();
+        }
+
+        function openEditModal(sheetName, rowIdx, rowDataJson) {
+            const rowData = JSON.parse(rowDataJson.replace(/&quot;/g, '"'));
+            document.getElementById('edit-sheet-name').value = sheetName;
+            document.getElementById('edit-row-idx').value = rowIdx;
+            
+            const container = document.getElementById('edit-fields-container');
+            container.innerHTML = "";
+            
+            Object.keys(rowData).forEach(key => {
+                if (key === '_row_idx') return;
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <label class="block text-[10px] font-black uppercase text-white/40 mb-1 tracking-widest">${key}</label>
+                    <input type="text" name="${key}" value="${rowData[key] !== null ? rowData[key] : ''}" 
+                        class="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-xl text-white text-sm focus:ring-4 focus:ring-white/10 transition-all outline-none">
+                `;
+                container.appendChild(div);
+            });
+            
+            document.getElementById('delete-btn-modal').onclick = () => {
+                if (confirm("Delete this attendance row? Student master records will not be deleted.")) {
+                    deleteRecord(sheetName, rowIdx);
+                    closeEditModal();
+                }
+            };
+            
+            document.getElementById('edit-row-modal').classList.remove('hidden');
+        }
+
+        function closeEditModal() { document.getElementById('edit-row-modal').classList.add('hidden'); }
+
+        function filterAttendanceTable() {
+            const query = document.getElementById('attendance-search').value.toLowerCase();
+            const rows = document.querySelectorAll('.attendee-row');
+            rows.forEach(row => {
+                const name = row.getAttribute('data-name');
+                const mobile = row.getAttribute('data-mobile');
+                if (name.includes(query) || mobile.includes(query)) {
+                    row.classList.remove('hidden');
+                } else {
+                    row.classList.add('hidden');
+                }
+            });
+        }
+
+        async function openEditInLiveMode(mobile, name, sheetName) {
+            // Fetch user details first to find the row index in the sheet
+            try {
+                const res = await fetch(`/api/get_sheet_content/${encodeURIComponent(sheetName)}`);
+                const result = await res.json();
+                if (result.data) {
+                    const row = result.data.find(r => String(r['Number'] || r['Mobile']).trim() === String(mobile).trim());
+                    if (row) {
+                        // We need the actual row index from the sheet. 
+                        // openpyxl index = header(1) + 0-based idx + 1
+                        const realIdx = result.data.indexOf(row) + 2; 
+                        openEditModal(sheetName, realIdx, row);
+                    } else {
+                        showToast("Could not find record in sheet", true);
+                    }
+                }
+            } catch (e) {
+                showToast("Failed to load record details", true);
+            }
+        }
+
+        async function saveEditedRow(e) {
+            e.preventDefault();
+            const form = document.getElementById('edit-row-form');
+            const sheetName = document.getElementById('edit-sheet-name').value;
+            const updatedData = {};
+
+            // Get values from dynamic inputs
+            const inputs = document.getElementById('edit-fields-container').querySelectorAll('input');
+            inputs.forEach(input => {
+                updatedData[input.name] = input.value;
+            });
+
+            try {
+                // Check if editing server data or sheet data
+                if (sheetName === 'SERVER_DATA') {
+                    const mobile = document.getElementById('server-edit-mobile').value;
+                    const res = await fetch('/api/update_user', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ mobile: mobile, data: updatedData })
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        showToast("Record updated!");
+                        closeEditModal();
+                        fetchServerData();
+                    } else { showToast(result.error, true); }
+                } else {
+                    const rowIdx = document.getElementById('edit-row-idx').value;
+                    const res = await fetch('/api/update_row', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ sheet_name: sheetName, row_idx: rowIdx, data: updatedData })
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        showToast("Record updated!");
+                        closeEditModal();
+                        fetchSheetContent(sheetName);
+                    } else { showToast(result.error, true); }
+                }
+            } catch (e) { showToast("Save failed", true); }
+        }
+
+        async function deleteRecord(sheetName, rowIdx) {
+            if (!confirm("Delete this attendance row? Student master records will not be deleted.")) return;
+            
+            let deleteMaster = false;
+
+            try {
+                const res = await fetch('/api/delete_row', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ sheet_name: sheetName, row_idx: rowIdx, delete_master: deleteMaster })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast(deleteMaster ? "Record wiped globally!" : "Record deleted from session!");
+                    if (currentMode === 'EDITOR') fetchSheetContent(sheetName);
+                    else fetchAndShowTable();
+                } else { showToast(result.error, true); }
+            } catch (e) { showToast("Delete failed", true); }
+        }
+
+        // --- DASHBOARD SYNC ---
+        async function updateLiveCount() {
+            try {
+                const sid = document.getElementById('session-select').value;
+                const d = document.getElementById('attendance-date').value;
+                const batch = document.getElementById('batch-select').value;
+                
+                // Show/Hide attendance bulk-delete button
+                const batchDelBtn = document.getElementById('attendance-delete-btn');
+                if (batch && batch !== "" && currentMode === 'LIVE') {
+                    batchDelBtn.classList.remove('hidden');
+                } else {
+                    batchDelBtn.classList.add('hidden');
+                }
+
+                const res = await fetch(`/api/live_count?session_id=${encodeURIComponent(sid)}&date=${encodeURIComponent(d)}&batch=${encodeURIComponent(batch)}&category=${encodeURIComponent(hostCategory())}`);
+                const data = await res.json();
+                const countEl = document.getElementById('live-count');
+                if (countEl.innerText != data.count) {
+                    countEl.innerText = data.count;
+                    if (currentMode === 'LIVE') fetchAndShowTable();
+                }
+            } catch (e) {}
+        }
+
+        async function batchDelete() {
+            const sid = document.getElementById('session-select').value;
+            const d = document.getElementById('attendance-date').value;
+            const batch = document.getElementById('batch-select').value;
+
+            if (!batch || batch === "") {
+                showToast("Select a batch first!", true);
+                return;
+            }
+
+            if (!confirm(`Delete attendance rows for the current filters? This will not delete the batch, session, or student master records.`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/batch_delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sid, date: d, batch_name: batch })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast(result.message || "Attendance rows cleared.");
+                    updateLiveCount();
+                    fetchAndShowTable();
+                } else {
+                    showToast(result.message || "Delete failed", true);
+                }
+            } catch (e) {
+                showToast("Network error during attendance row delete", true);
+            }
+        }
+
+        async function deleteSelectedBatch() {
+            const batchState = getHostBatchState();
+            const batchSel = document.getElementById('batch-select');
+            const selectedOption = batchSel && batchSel.selectedOptions && batchSel.selectedOptions[0] ? batchSel.selectedOptions[0] : null;
+            const batchId = batchState.id || (selectedOption && selectedOption.dataset ? String(selectedOption.dataset.batchId || '') : '');
+            if (!batchId) {
+                showToast('Please select a batch before deleting it.', true);
+                return;
+            }
+
+            if (!confirm('Delete this entire batch and its sessions? Attendance rows linked to this batch/session may be removed. Student master records will not be deleted.')) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/batches/${encodeURIComponent(batchId)}/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await res.json();
+                if (res.ok && data.ok) {
+                    showToast(data.message || 'Batch deleted');
+                    window.location.reload();
+                } else {
+                    showToast(data.message || 'Delete failed', true);
+                }
+            } catch (e) {
+                showToast('Network error during batch delete', true);
+            }
+        }
+
+        // Re-render only when the fetched data actually differs from what's on
+        // screen. /api/get_last_update tracks ONE shared workbook mtime across
+        // every centre/batch/session, so this poll fires on ANY attendance mark
+        // anywhere in the system — most of those ticks return identical data for
+        // whatever THIS tab happens to be viewing. Without this guard, every tick
+        // did a full innerHTML teardown+rebuild regardless, which is what read as
+        // constant flicker (2026-07-27 report).
+        let _liveTableSignature = null;
+        async function fetchAndShowTable() {
+            if (currentMode !== 'LIVE') return;
+            try {
+                const sid = document.getElementById('session-select').value;
+                const d = document.getElementById('attendance-date').value;
+                const batch = document.getElementById('batch-select').value;
+                const res = await fetch(`/api/show_attendance?session_id=${encodeURIComponent(sid)}&date=${encodeURIComponent(d)}&batch=${encodeURIComponent(batch)}`);
+                const data = await res.json();
+
+                const signature = JSON.stringify([sid, d, batch, data]);
+                if (signature === _liveTableSignature) return;
+                _liveTableSignature = signature;
+
+                const headerRow = document.getElementById('table-header');
+                const tbody = document.getElementById('attendees-table-body');
+
+                // Static headers for Live view
+                headerRow.innerHTML = `
+                    <tr>
+                        <th class="px-6 py-4 text-left text-[10px] font-black text-white/40 uppercase tracking-[0.2em] sticky-col border-b border-white/10">Name</th>
+                        <th class="px-6 py-4 text-left text-[10px] font-black text-white/40 uppercase tracking-[0.2em] border-b border-white/10">Mobile</th>
+                        <th class="px-6 py-4 text-left text-[10px] font-black text-white/40 uppercase tracking-[0.2em] border-b border-white/10">Session</th>
+                        <th class="px-6 py-4 text-left text-[10px] font-black text-white/40 uppercase tracking-[0.2em] border-b border-white/10">Occupation</th>
+                        <th class="px-6 py-4 text-left text-[10px] font-black text-white/40 uppercase tracking-[0.2em] border-b border-white/10">Rounds</th>
+                        <th class="px-6 py-4 text-left text-[10px] font-black text-white/40 uppercase tracking-[0.2em] border-b border-white/10">Remark</th>
+                        <th class="px-6 py-4 text-right text-[10px] font-black text-white/40 uppercase tracking-[0.2em] border-b border-white/10">Action</th>
+                    </tr>
+                `;
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-white/20 uppercase font-black text-[10px] tracking-widest">Waiting for live records...</td></tr>';
+                    updateTopScroll();
+                    return;
+                }
+                tbody.innerHTML = data.reverse().map((user, idx) => {
+                    const rowIdx = data.length - idx; // Approximation for Live view
+                    return `
+                        <tr class="hover:bg-white/5 transition-colors border-b border-white/5 attendee-row" data-name="${user.name.toLowerCase()}" data-mobile="${user.mobile}">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-white sticky-col">${user.name}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-white/60 font-mono">${user.mobile}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-white/60">${user.session_id || '-'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-white/60">${user.occupation || '-'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-black text-emerald-400">#${user.rounds || '0'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-white/40 italic">${user.remark || '-'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <button onclick="openEditInLiveMode('${user.mobile}', '${user.name}', '${sid}')" class="p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded-lg transition-all border border-indigo-500/20">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                filterAttendanceTable(); // Apply search if any
+                updateTopScroll();
+            } catch (e) {}
+        }
+
+        // --- SCROLL SYNC LOGIC ---
+        function updateTopScroll() {
+            const table = document.getElementById('main-attendance-table');
+            const topContent = document.getElementById('top-h-content');
+            if (table && topContent) {
+                topContent.style.width = table.scrollWidth + 'px';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const dateInput = document.getElementById('attendance-date');
+            if (dateInput) {
+                dateInput.addEventListener('input', function() {
+                    AttendEaseSync.onDateSelected(this.value);
+                    updateLiveCount();
+                    if (currentMode === 'SERVER_LIST') {
+                        fetchServerData();
+                    } else {
+                        fetchAndShowTable();
+                    }
+                });
+            }
+
+            const tableContainer = document.getElementById('table-scroll-container');
+            const topScroll = document.getElementById('top-h-scroll');
+            if (tableContainer && topScroll) {
+                tableContainer.addEventListener('scroll', () => {
+                    topScroll.scrollLeft = tableContainer.scrollLeft;
+                });
+                topScroll.addEventListener('scroll', () => {
+                    tableContainer.scrollLeft = topScroll.scrollLeft;
+                });
+                window.addEventListener('resize', updateTopScroll);
+            }
+        });
+
+        // --- OFFLINE & STATUS ---
+        function handleOffline() { document.getElementById('offline-banner').classList.remove('hidden'); }
+        function handleOnline() { document.getElementById('offline-banner').classList.add('hidden'); }
+async function checkServerStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                if (data.shutting_down) document.getElementById('shutdown-modal').classList.remove('hidden');
+            } catch (e) {}
+        }
+        setInterval(checkServerStatus, 2000);
+        function extendShutdown() { fetch('/api/extend_server', {method: 'POST'}); document.getElementById('shutdown-modal').classList.add('hidden'); }
+        function acceptShutdown() { window.close(); }
+
+        // --- AUTH & APPROVAL LOGIC ---
+        let approvalCentres = [];
+        let approvalDefaultCentreId = 'centre_b_Base';
+        let approvalContextPromise = null;
+        const approvalSelections = {};
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function approvalSafeId(value) {
+            return String(value ?? '').replace(/[^a-zA-Z0-9_-]/g, '_');
+        }
+
+        function approvalSelectionChanged(username, field, value) {
+            if (!approvalSelections[username]) {
+                approvalSelections[username] = {};
+            }
+            approvalSelections[username][field] = value;
+        }
+
+        function getApprovalSelection(username, field) {
+            return approvalSelections[username] && approvalSelections[username][field] ? approvalSelections[username][field] : null;
+        }
+
+        async function ensureApprovalContextLoaded() {
+            if (approvalContextPromise) return approvalContextPromise;
+
+            approvalContextPromise = (async () => {
+                try {
+                    const [centresRes, sessionRes] = await Promise.all([
+                        fetch('/api/centres'),
+                        fetch('/api/get_session')
+                    ]);
+
+                    const centresData = centresRes.ok ? await centresRes.json() : [];
+                    let sessionData = {};
+                    if (sessionRes.ok) {
+                        try {
+                            sessionData = await sessionRes.json();
+                        } catch (e) {
+                            sessionData = {};
+                        }
+                    }
+
+                    approvalCentres = Array.isArray(centresData)
+                        ? centresData.filter(c => !c.status || c.status === 'active')
+                        : [];
+
+                    const currentCentreId = sessionData && sessionData.centre_id ? sessionData.centre_id : null;
+                    const currentCentre = approvalCentres.find(c => c.centre_id === currentCentreId);
+                    const defaultCentre = approvalCentres.find(c => c.centre_id === 'centre_b_Base');
+
+                    approvalDefaultCentreId = (
+                        (currentCentre && currentCentre.centre_id) ||
+                        (defaultCentre && defaultCentre.centre_id) ||
+                        (approvalCentres[0] && approvalCentres[0].centre_id) ||
+                        'centre_b_Base'
+                    );
+                } catch (e) {
+                    approvalCentres = [];
+                    approvalDefaultCentreId = 'centre_b_Base';
+                }
+            })();
+
+            return approvalContextPromise;
+        }
+
+        function buildCentreOptions(username) {
+            const storedCentreId = getApprovalSelection(username, 'centre_id') || approvalDefaultCentreId;
+            const centres = approvalCentres.length > 0 ? approvalCentres : [{ centre_id: 'centre_b_Base', name: 'Centre B' }];
+            return centres.map(c => {
+                const selected = c.centre_id === storedCentreId ? 'selected' : '';
+                return `<option value="${escapeHtml(c.centre_id)}" ${selected}>${escapeHtml(c.name || c.centre_id)}</option>`;
+            }).join('');
+        }
+
+        function buildRoleOptions(username) {
+            const storedRole = getApprovalSelection(username, 'role') || 'registerer';
+            const options = [
+                { value: 'registerer', label: 'Registerer' },
+                { value: 'centre_admin', label: 'Centre Admin' }
+            ];
+            return options.map(opt => {
+                const selected = opt.value === storedRole ? 'selected' : '';
+                return `<option value="${escapeHtml(opt.value)}" ${selected}>${escapeHtml(opt.label)}</option>`;
+            }).join('');
+        }
+
+        async function fetchPendingApprovals() {
+            try {
+                await ensureApprovalContextLoaded();
+                const res = await fetch('/api/auth/pending');
+                const data = await res.json();
+                const container = document.getElementById('pending-approvals-box');
+                const list = document.getElementById('pending-list');
+                const count = document.getElementById('pending-count');
+                
+                if (data.length > 0) {
+                    container.classList.remove('hidden');
+                    count.innerText = data.length;
+                    list.innerHTML = data.map(u => `
+                        <div class="p-3 flex flex-col gap-3 group hover:bg-slate-50 transition-colors">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <div class="text-xs font-bold text-slate-800 truncate">${escapeHtml(u.username)}</div>
+                                    <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Pending</span>
+                                </div>
+                                <div class="text-[9px] text-slate-400 uppercase font-black mt-1">${escapeHtml(u.created_at || '')}</div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <label class="block">
+                                    <span class="block text-[9px] font-black uppercase text-slate-500 mb-1">Centre</span>
+                                    <select id="approval-centre-${approvalSafeId(u.username)}" onchange="approvalSelectionChanged('${u.username.replace(/'/g, "\\'")}', 'centre_id', this.value)" class="w-full text-[11px] font-bold text-slate-700 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                                        ${buildCentreOptions(u.username)}
+                                    </select>
+                                </label>
+                                <label class="block">
+                                    <span class="block text-[9px] font-black uppercase text-slate-500 mb-1">Role</span>
+                                    <select id="approval-role-${approvalSafeId(u.username)}" onchange="approvalSelectionChanged('${u.username.replace(/'/g, "\\'")}', 'role', this.value)" class="w-full text-[11px] font-bold text-slate-700 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                                        ${buildRoleOptions(u.username)}
+                                    </select>
+                                </label>
+                            </div>
+                            <div class="flex gap-1 justify-end">
+                                <button onclick="approveUser('${u.username.replace(/'/g, "\\'")}', 'approve')" class="p-1.5 bg-emerald-100 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-lg transition-all shadow-sm">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                </button>
+                                <button onclick="approveUser('${u.username.replace(/'/g, "\\'")}', 'reject')" class="p-1.5 bg-rose-100 text-rose-600 hover:bg-rose-600 hover:text-white rounded-lg transition-all shadow-sm">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.classList.add('hidden');
+                }
+            } catch (e) {}
+        }
+
+        async function fetchCentreChangeRequests() {
+            try {
+                const res = await fetch('/api/centre-change/pending');
+                const data = await res.json();
+                const container = document.getElementById('centre-change-requests-box');
+                const list = document.getElementById('centre-change-list');
+                const count = document.getElementById('centre-change-count');
+
+                if (!data.ok || !Array.isArray(data.requests) || data.requests.length === 0) {
+                    if (container) container.classList.add('hidden');
+                    return;
+                }
+
+                container.classList.remove('hidden');
+                count.innerText = data.requests.length;
+                list.innerHTML = data.requests.map(req => `
+                    <div class="p-3 flex flex-col gap-3 group hover:bg-slate-50 transition-colors">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <div class="text-xs font-bold text-slate-800 truncate">${escapeHtml(req.username)}</div>
+                                <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">Centre Change</span>
+                            </div>
+                            <div class="text-[9px] text-slate-400 uppercase font-black mt-1">${escapeHtml(req.created_at || '')}</div>
+                        </div>
+                        <div class="grid grid-cols-1 gap-2 text-[11px] text-slate-600">
+                            <div class="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2">
+                                <div class="text-[9px] uppercase font-black text-slate-400">Current Centre</div>
+                                <div class="font-bold text-slate-800">${escapeHtml(req.current_centre_name || req.current_centre_id || '')}</div>
+                                <div class="text-[10px] font-mono text-slate-500">${escapeHtml(req.current_centre_id || '')}</div>
+                            </div>
+                            <div class="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2">
+                                <div class="text-[9px] uppercase font-black text-slate-400">Requested Centre</div>
+                                <div class="font-bold text-slate-800">${escapeHtml(req.requested_centre_name || req.requested_centre_id || '')}</div>
+                                <div class="text-[10px] font-mono text-slate-500">${escapeHtml(req.requested_centre_id || '')}</div>
+                            </div>
+                            ${req.reason ? `<div class="rounded-xl bg-violet-50 border border-violet-100 px-3 py-2">
+                                <div class="text-[9px] uppercase font-black text-violet-500">Reason</div>
+                                <div class="text-slate-700 font-medium">${escapeHtml(req.reason)}</div>
+                            </div>` : ''}
+                        </div>
+                        <div class="flex gap-1 justify-end">
+                            <button onclick="reviewCentreChangeRequest(${req.id}, 'approve')" class="p-1.5 bg-emerald-100 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-lg transition-all shadow-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            </button>
+                            <button onclick="reviewCentreChangeRequest(${req.id}, 'reject')" class="p-1.5 bg-rose-100 text-rose-600 hover:bg-rose-600 hover:text-white rounded-lg transition-all shadow-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {}
+        }
+
+        async function reviewCentreChangeRequest(requestId, action) {
+            try {
+                const res = await fetch(`/api/centre-change/${requestId}/review`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action })
+                });
+                const data = await res.json();
+                if (res.ok && data.ok) {
+                    showToast(data.message || (action === 'approve' ? 'Centre change approved' : 'Centre change rejected'));
+                    fetchCentreChangeRequests();
+                } else {
+                    showToast(data.message || 'Action failed', true);
+                }
+            } catch (e) {
+                showToast('Action failed', true);
+            }
+        }
+
+        async function approveUser(username, action) {
+            try {
+                const payload = { username, action };
+                if (action === 'approve') {
+                    const centreSelect = document.getElementById(`approval-centre-${approvalSafeId(username)}`);
+                    const roleSelect = document.getElementById(`approval-role-${approvalSafeId(username)}`);
+                    payload.centre_id = (getApprovalSelection(username, 'centre_id') || (centreSelect ? centreSelect.value : null) || approvalDefaultCentreId);
+                    payload.role = (getApprovalSelection(username, 'role') || (roleSelect ? roleSelect.value : null) || 'registerer');
+                }
+                const res = await fetch('/api/auth/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    showToast(action === 'approve' ? "User Approved!" : "User Rejected");
+                    fetchPendingApprovals();
+                }
+            } catch (e) { showToast("Action failed", true); }
+        }
+
+        // Add to main loop
+        setInterval(fetchPendingApprovals, 3000);
+        setInterval(fetchCentreChangeRequests, 3000);
+        fetchPendingApprovals();
+        fetchCentreChangeRequests();
+
+        function showToast(m, isErr = false) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = m;
+            t.classList.toggle('bg-rose-600', isErr);
+            t.classList.toggle('bg-slate-800', !isErr);
+            t.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 3000);
+        }
+
+        async function ensureHostCentreContextLoaded() {
+            if (hostCentreContextPromise) return hostCentreContextPromise;
+
+            hostCentreContextPromise = (async () => {
+                await ensureApprovalContextLoaded();
+                hostCentres = Array.isArray(approvalCentres) ? approvalCentres.slice() : [];
+                hostSelectedCentreId = approvalDefaultCentreId || 'centre_b_Base';
+                return {
+                    centres: hostCentres,
+                    selectedCentreId: hostSelectedCentreId
+                };
+            })();
+
+            return hostCentreContextPromise;
+        }
+
+        function buildHostCentreOptions() {
+            const centres = hostCentres.length > 0
+                ? hostCentres
+                : [{ centre_id: 'centre_b_Base', name: 'Centre B' }];
+            const selectedCentreId = hostSelectedCentreId || approvalDefaultCentreId || 'centre_b_Base';
+            return centres.map(c => {
+                const selected = c.centre_id === selectedCentreId ? 'selected' : '';
+                return `<option value="${escapeHtml(c.centre_id)}" ${selected}>${escapeHtml(c.name || c.centre_id)}</option>`;
+            }).join('');
+        }
+
+        async function loadHostCentreSwitcher() {
+            try {
+                const select = document.getElementById('host-centre-select');
+                if (!select) return;
+                const hasRenderedCentres = select.options && select.options.length > 0 && select.options[0].textContent !== 'Loading centres...';
+                if (hasRenderedCentres) {
+                    hostCentres = [...select.options].map(option => ({
+                        centre_id: option.value,
+                        name: option.textContent
+                    }));
+                    hostSelectedCentreId = select.value || hostSelectedCentreId;
+                    return;
+                }
+                await ensureHostCentreContextLoaded();
+                select.innerHTML = buildHostCentreOptions();
+                select.value = hostSelectedCentreId || approvalDefaultCentreId || 'centre_b_Base';
+            } catch (e) {}
+        }
+
+        async function selectHostCentre(centreId) {
+            if (!centreId) return;
+            try {
+                const res = await fetch('/api/centres/select', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ centre_id: centreId })
+                });
+                const data = await res.json();
+                if (res.ok && data.ok) {
+                    showToast(data.message || 'Centre selected');
+                    window.location.reload();
+                } else {
+                    showToast(data.message || 'Failed to change centre', true);
+                    await loadHostCentreSwitcher();
+                }
+            } catch (e) {
+                showToast('Failed to change centre', true);
+            }
+        }
+
+        function getHostSelectedCentreContext() {
+            const select = document.getElementById('host-centre-select');
+            const option = select && select.selectedOptions && select.selectedOptions[0] ? select.selectedOptions[0] : null;
+            return {
+                centre_id: select ? String(select.value || '').trim() : '',
+                centre_name: option ? String((option.textContent || '').trim()) : ''
+            };
+        }
+
+        // --- Youth/Congregation host category state ---
+        // Which category track the host live table + batch list currently shows.
+        window.HostCategory = 'youth';
+        function hostCategory() { return window.HostCategory === 'congregation' ? 'congregation' : 'youth'; }
+
+        // Show the "showing category" dropdown only when the selected centre has
+        // congregation enabled; otherwise force youth and hide it.
+        async function initHostCategoryUI() {
+            const ctx = getHostSelectedCentreContext();
+            let enabled = false;
+            try {
+                const res = await fetch('/api/centres');
+                if (res.ok) {
+                    const list = await res.json();
+                    const mine = Array.isArray(list) ? list.find(c => c.centre_id === ctx.centre_id) : null;
+                    enabled = !!(mine && mine.congregation_enabled);
+                }
+            } catch (e) { /* ignore */ }
+            const container = document.getElementById('host-category-container');
+            if (container) container.classList.toggle('hidden', !enabled);
+            if (!enabled) {
+                window.HostCategory = 'youth';
+                const sel = document.getElementById('host-category-select');
+                if (sel) sel.value = 'youth';
+            }
+            filterHostBatchOptions();
+        }
+
+        // Hide batch options that don't belong to the current category (keeps the
+        // "LIVE (All Batches)" option, which has an empty data-category).
+        function filterHostBatchOptions() {
+            const sel = document.getElementById('batch-select');
+            if (!sel) return;
+            const cat = hostCategory();
+            let currentInvalid = false;
+            Array.from(sel.options).forEach(opt => {
+                const oc = opt.getAttribute('data-category');
+                const show = !oc || oc === cat;
+                opt.hidden = !show;
+                if (!show && opt.selected) currentInvalid = true;
+            });
+            if (currentInvalid) {
+                sel.value = '';
+                if (typeof onHostBatchSelected === 'function') onHostBatchSelected(sel);
+            }
+        }
+
+        function setHostCategory(cat) {
+            window.HostCategory = (cat === 'congregation') ? 'congregation' : 'youth';
+            filterHostBatchOptions();
+            if (typeof fetchServerData === 'function') fetchServerData();
+        }
+
+        // Initialise the toggle on load and whenever the host switches centre.
+        document.addEventListener('DOMContentLoaded', function () {
+            initHostCategoryUI();
+            const centreSel = document.getElementById('host-centre-select');
+            if (centreSel) centreSel.addEventListener('change', function () { setTimeout(initHostCategoryUI, 50); });
+        });
+
+        function openHostNewCentreModal() {
+            const modal = document.getElementById('host-new-centre-modal');
+            const idInput = document.getElementById('host-new-centre-id');
+            const nameInput = document.getElementById('host-new-centre-name');
+            const sheetInput = document.getElementById('host-new-centre-sheet-id');
+            const enabledInput = document.getElementById('host-new-centre-sheet-enabled');
+            if (modal) modal.classList.remove('hidden');
+            if (idInput) idInput.value = '';
+            if (nameInput) nameInput.value = '';
+            if (sheetInput) sheetInput.value = '';
+            if (enabledInput) enabledInput.checked = false;
+            setTimeout(() => idInput && idInput.focus(), 50);
+        }
+
+        function closeHostNewCentreModal() {
+            const modal = document.getElementById('host-new-centre-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function createHostNewCentre() {
+            const centreIdInput = document.getElementById('host-new-centre-id');
+            const nameInput = document.getElementById('host-new-centre-name');
+            const sheetIdInput = document.getElementById('host-new-centre-sheet-id');
+            const enabledInput = document.getElementById('host-new-centre-sheet-enabled');
+            const centre_id = centreIdInput ? centreIdInput.value.trim() : '';
+            const name = nameInput ? nameInput.value.trim() : '';
+            const google_sheet_id = sheetIdInput ? sheetIdInput.value.trim() : '';
+            const google_sheet_enabled = !!(enabledInput && enabledInput.checked && google_sheet_id);
+            const congregationInput = document.getElementById('host-new-centre-congregation-enabled');
+            const congregation_enabled = !!(congregationInput && congregationInput.checked);
+
+            if (!centre_id) {
+                showToast('Enter a centre ID', true);
+                return;
+            }
+            if (!name) {
+                showToast('Enter a centre name', true);
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/centres', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        centre_id,
+                        name,
+                        google_sheet_id: google_sheet_id || null,
+                        google_sheet_enabled,
+                        congregation_enabled
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.ok) {
+                    closeHostNewCentreModal();
+                    showToast(data.message || 'Centre created');
+                    window.location.reload();
+                } else {
+                    showToast(data.message || 'Failed to create centre', true);
+                }
+            } catch (e) {
+                showToast('Network error while creating centre', true);
+            }
+        }
+
+        async function openHostEditCentreModal() {
+            const modal = document.getElementById('host-edit-centre-modal');
+            const idInput = document.getElementById('host-edit-centre-id');
+            const nameInput = document.getElementById('host-edit-centre-name');
+            const congInput = document.getElementById('host-edit-centre-congregation-enabled');
+            const current = getHostSelectedCentreContext();
+            if (!current.centre_id) {
+                showToast('Select a centre first', true);
+                return;
+            }
+            const sheetInput = document.getElementById('host-edit-centre-sheet-id');
+            const sheetEnabled = document.getElementById('host-edit-centre-sheet-enabled');
+            const sheetStatus = document.getElementById('host-edit-centre-sheet-status');
+            if (modal) modal.classList.remove('hidden');
+            if (idInput) idInput.value = current.centre_id;
+            if (nameInput) nameInput.value = current.centre_name || '';
+            if (sheetInput) sheetInput.value = '';
+            if (sheetEnabled) sheetEnabled.checked = false;
+            if (sheetStatus) sheetStatus.textContent = '';
+            // Reflect the centre's current congregation + sheet state.
+            if (congInput) congInput.checked = false;
+            try {
+                const res = await fetch('/api/centres');
+                if (res.ok) {
+                    const list = await res.json();
+                    const mine = Array.isArray(list) ? list.find(c => c.centre_id === current.centre_id) : null;
+                    if (congInput) congInput.checked = !!(mine && mine.congregation_enabled);
+                    if (sheetInput) sheetInput.value = (mine && mine.google_sheet_id) || '';
+                    if (sheetEnabled) sheetEnabled.checked = !!(mine && mine.google_sheet_enabled);
+                    if (sheetStatus) {
+                        sheetStatus.textContent = (mine && mine.google_sheet_id)
+                            ? 'Linked'
+                            : 'No sheet linked — this centre is not syncing to Google Sheets';
+                        sheetStatus.className = (mine && mine.google_sheet_id)
+                            ? 'text-[10px] font-bold text-emerald-400'
+                            : 'text-[10px] font-bold text-amber-400';
+                    }
+                }
+            } catch (e) { /* ignore */ }
+            setTimeout(() => nameInput && nameInput.focus(), 50);
+        }
+
+        async function testHostCentreSheet() {
+            const idInput = document.getElementById('host-edit-centre-id');
+            const statusEl = document.getElementById('host-edit-centre-sheet-status');
+            const centre_id = idInput ? idInput.value.trim() : '';
+            if (!centre_id) return;
+            if (statusEl) {
+                statusEl.textContent = 'Testing...';
+                statusEl.className = 'text-[10px] font-bold text-white/40';
+            }
+            // Test what is SAVED, so save the field first if it changed.
+            await saveHostCentreSheet(centre_id, { silent: true });
+            try {
+                const res = await fetch(`/api/centres/${encodeURIComponent(centre_id)}/test-sheet`, { method: 'POST' });
+                const data = await res.json();
+                if (statusEl) {
+                    if (res.ok && data.ok) {
+                        statusEl.textContent = `Connected: ${data.spreadsheet_title || 'sheet found'}`;
+                        statusEl.className = 'text-[10px] font-bold text-emerald-400';
+                    } else {
+                        statusEl.textContent = data.message || 'Connection failed';
+                        statusEl.className = 'text-[10px] font-bold text-rose-400';
+                    }
+                }
+            } catch (e) {
+                if (statusEl) {
+                    statusEl.textContent = 'Network error while testing';
+                    statusEl.className = 'text-[10px] font-bold text-rose-400';
+                }
+            }
+        }
+
+        // Persist just the Google Sheet link for a centre. Separate from the
+        // rename call so a sheet conflict (two centres, one sheet) surfaces its
+        // own error instead of being swallowed by the rename result.
+        async function saveHostCentreSheet(centre_id, opts) {
+            const silent = !!(opts && opts.silent);
+            const sheetInput = document.getElementById('host-edit-centre-sheet-id');
+            const sheetEnabled = document.getElementById('host-edit-centre-sheet-enabled');
+            const google_sheet_id = sheetInput ? sheetInput.value.trim() : '';
+            const google_sheet_enabled = !!(sheetEnabled && sheetEnabled.checked);
+            try {
+                const res = await fetch(`/api/centres/${encodeURIComponent(centre_id)}/sheet`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ google_sheet_id, google_sheet_enabled })
+                });
+                const data = await res.json();
+                if (!(res.ok && data.ok)) {
+                    if (!silent) showToast(data.message || 'Failed to save Google Sheet', true);
+                    return false;
+                }
+                return true;
+            } catch (e) {
+                if (!silent) showToast('Network error while saving Google Sheet', true);
+                return false;
+            }
+        }
+
+        function closeHostEditCentreModal() {
+            const modal = document.getElementById('host-edit-centre-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function renameHostCentre() {
+            const idInput = document.getElementById('host-edit-centre-id');
+            const nameInput = document.getElementById('host-edit-centre-name');
+            const centre_id = idInput ? idInput.value.trim() : '';
+            const name = nameInput ? nameInput.value.trim() : '';
+            if (!centre_id) {
+                showToast('Select a centre first', true);
+                return;
+            }
+            if (!name) {
+                showToast('Enter a centre name', true);
+                return;
+            }
+
+            const congInput = document.getElementById('host-edit-centre-congregation-enabled');
+            const congregation_enabled = !!(congInput && congInput.checked);
+
+            try {
+                const res = await fetch(`/api/centres/${encodeURIComponent(centre_id)}/rename`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const data = await res.json();
+                if (!(res.ok && data.ok)) {
+                    showToast(data.message || 'Failed to save centre', true);
+                    return;
+                }
+                // Persist the congregation-track flag alongside the rename.
+                try {
+                    await fetch(`/api/centres/${encodeURIComponent(centre_id)}/categories`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ congregation_enabled })
+                    });
+                } catch (e) { /* non-fatal */ }
+                // Sheet link is saved last and IS blocking: if it's rejected
+                // (e.g. that sheet already belongs to another centre) the modal
+                // stays open showing why, instead of reloading over the error.
+                const sheetOk = await saveHostCentreSheet(centre_id);
+                if (!sheetOk) return;
+                closeHostEditCentreModal();
+                showToast(data.message || 'Centre saved');
+                window.location.reload();
+            } catch (e) {
+                showToast('Network error while saving centre', true);
+            }
+        }
+
+        function confirmHostDeleteCentre() {
+            const current = getHostSelectedCentreContext();
+            if (!current.centre_id) {
+                showToast('Select a centre first', true);
+                return;
+            }
+            if (!confirm("Deactivate this centre? Existing batches, sessions, attendance, and registerer records will not be deleted.")) {
+                return;
+            }
+            deleteHostCentre(current.centre_id);
+        }
+
+        async function deleteHostCentre(centreId) {
+            try {
+                const res = await fetch(`/api/centres/${encodeURIComponent(centreId)}/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await res.json();
+                if (res.ok && data.ok) {
+                    showToast(data.message || 'Centre deactivated');
+                    window.location.reload();
+                } else {
+                    showToast(data.message || 'Failed to deactivate centre', true);
+                }
+            } catch (e) {
+                showToast('Network error while deactivating centre', true);
+            }
+        }
+
+        function formatRegistererTimestamp(value) {
+            return value ? value : '—';
+        }
+
+        async function loadCentreRegisterers() {
+            const body = document.getElementById('centre-registerers-body');
+            const count = document.getElementById('centre-registerers-count');
+            const subtitle = document.getElementById('centre-registerers-subtitle');
+            if (!body || !count || !subtitle) return;
+
+            try {
+                const centreSelect = document.getElementById('host-centre-select');
+                const centreId = (centreSelect && centreSelect.value) || hostSelectedCentreId || approvalDefaultCentreId || 'centre_b_Base';
+                const res = await fetch(`/api/centre-access?centre_id=${encodeURIComponent(centreId)}`);
+                const data = await res.json();
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.message || 'Failed to load registerers');
+                }
+
+                const registerers = Array.isArray(data.registerers) ? data.registerers : [];
+                count.innerText = registerers.length;
+                subtitle.innerText = `Assigned to ${data.centre_name || 'selected centre'}`;
+
+                if (registerers.length === 0) {
+                    body.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="px-4 py-6 text-center text-xs text-white/40">
+                                No registerers assigned to this centre.
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                body.innerHTML = registerers.map(row => {
+                    const status = (row.status || '').toLowerCase();
+                    const statusClass = status === 'active'
+                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/20'
+                        : 'bg-white/10 text-white/40 border-white/10';
+                    const displayName = row.display_name || row.username || '';
+                    const lastSeen = formatRegistererTimestamp(row.last_seen_at);
+                    const approvedAt = formatRegistererTimestamp(row.approved_at || row.created_at);
+                    return `
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="px-4 py-3 text-xs font-bold text-white whitespace-nowrap">${escapeHtml(displayName)}</td>
+                            <td class="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-cyan-300 whitespace-nowrap">${escapeHtml(row.role || 'registerer')}</td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-widest ${statusClass}">
+                                    ${escapeHtml(row.status || 'inactive')}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-[10px] font-mono text-white/60 whitespace-nowrap">${escapeHtml(lastSeen)}</td>
+                            <td class="px-4 py-3 text-[10px] font-mono text-white/60 whitespace-nowrap">${escapeHtml(approvedAt)}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {
+                count.innerText = '0';
+                subtitle.innerText = 'Assigned to selected centre';
+                body.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="px-4 py-6 text-center text-xs text-white/40">
+                            Unable to load registerers.
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+        // --- ADDRESS & REMARK MANAGEMENT JS ---
+        function openAddressModal() {
+            document.getElementById('address-modal').classList.remove('hidden');
+            loadManageAddresses();
+        }
+        function closeAddressModal() { document.getElementById('address-modal').classList.add('hidden'); fetchAddresses(); }
+        async function loadManageAddresses() {
+            const res = await fetch('/api/addresses');
+            const data = await res.json();
+            const list = document.getElementById('address-manage-list');
+            list.innerHTML = data.map(addr => `
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl group transition-all hover:bg-white hover:shadow-sm">
+                    <span class="text-xs font-bold text-slate-700">${addr.text}</span>
+                    <button onclick="deleteAddressItem(${addr.id})" class="p-2 text-rose-300 hover:text-rose-600 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+        async function addAddress() {
+            const text = document.getElementById('new-address-input').value.trim();
+            if(!text) return;
+            const res = await fetch('/api/addresses', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ text })
+            });
+            if(res.ok) { document.getElementById('new-address-input').value = ""; loadManageAddresses(); }
+        }
+        async function deleteAddressItem(id) {
+            if(!confirm("Delete this address?")) return;
+            const res = await fetch(`/api/addresses/${id}`, { method: 'DELETE' });
+            if(res.ok) loadManageAddresses();
+        }
+
+        function openRemarkModal() {
+            document.getElementById('remark-modal').classList.remove('hidden');
+            loadManageRemarks();
+        }
+        function closeRemarkModal() { document.getElementById('remark-modal').classList.add('hidden'); fetchRemarks(); }
+        async function loadManageRemarks() {
+            const res = await fetch('/api/remarks');
+            const data = await res.json();
+            const list = document.getElementById('remark-manage-list');
+            list.innerHTML = data.map(rem => `
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl group transition-all hover:bg-white hover:shadow-sm">
+                    <span class="text-xs font-bold text-slate-700">${rem.text}</span>
+                    <button onclick="deleteRemarkItem(${rem.id})" class="p-2 text-rose-300 hover:text-rose-600 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+        async function addRemark() {
+            const text = document.getElementById('new-remark-input').value.trim();
+            if(!text) return;
+            const res = await fetch('/api/remarks', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ text })
+            });
+            if(res.ok) { document.getElementById('new-remark-input').value = ""; loadManageRemarks(); }
+        }
+        async function deleteRemarkItem(id) {
+            if(!confirm("Delete this remark?")) return;
+            const res = await fetch(`/api/remarks/${id}`, { method: 'DELETE' });
+            if(res.ok) loadManageRemarks();
+        }
+    </script>
+    
+    <!-- Shared Sync Component (P4.3) -->
+    <script src="{{ url_for('static', filename='js/sync.js') }}"></script>
+    <script>
+        const aesync = window.AttendEaseSync;
+        const syncCallbacks = {
+            onSessionSynced: (sid) => {
+                if (typeof loadSessionDropdown === 'function') loadSessionDropdown();
+                if (typeof updateDeleteButton === 'function') updateDeleteButton();
+                if (typeof fetchAndShowTable === 'function') fetchAndShowTable();
+                if (typeof updateLiveCount === 'function') updateLiveCount();
+            }
+        };
+        setInterval(() => aesync.syncWithGlobalSession(syncCallbacks), 5000);
+    </script>
+</body>
+</html>

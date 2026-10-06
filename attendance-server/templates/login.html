@@ -1,0 +1,471 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <!-- These matter MOST here. start_url is /register, which bounces an
+         unauthenticated browser navigation to /login — so a cold home-screen
+         launch lands on this page, and this is also the page most people will
+         install FROM. It previously had no manifest link and no apple-touch-icon
+         at all, which is why an iOS install got a screenshot for an icon.
+         See registerer.html for the rationale on each tag. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="AttendEase">
+    <title>Login - AttendEase</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00f2fe;
+            --secondary: #4facfe;
+            --bg: #0b0e14;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --text: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .background-blobs {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .blob {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.2;
+            animation: move 20s infinite alternate;
+        }
+
+        @keyframes move {
+            from { transform: translate(-10%, -10%); }
+            to { transform: translate(110%, 110%); }
+        }
+
+        .login-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 24px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            margin-bottom: 8px;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p { opacity: 0.7; margin-bottom: 32px; font-weight: 300; }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-left: 4px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.2);
+            color: white;
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(0, 242, 254, 0.1);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        input[type="password"],
+        input[type="text"].password-field {
+            padding-right: 50px;
+        }
+
+        .eye-toggle {
+            position: absolute;
+            right: 14px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            width: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+            box-shadow: none;
+            transform: none !important;
+            color: white;
+        }
+
+        .eye-toggle:hover { opacity: 1; background: none; box-shadow: none; }
+        .eye-toggle:active { transform: none !important; }
+
+        .eye-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+        button.login-btn {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            color: #000;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 10px 20px -5px rgba(0, 242, 254, 0.3);
+            margin-top: 8px;
+        }
+
+        button.login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -10px rgba(0, 242, 254, 0.5);
+        }
+
+        button.login-btn:active { transform: translateY(0); }
+        button.login-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        .error-msg {
+            color: #ff4d4d;
+            font-size: 0.85rem;
+            margin-top: 14px;
+            display: none;
+            text-align: left;
+            padding: 10px 14px;
+            background: rgba(255, 77, 77, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 77, 77, 0.2);
+        }
+
+        .error-msg.warn { color: #ff9800; background: rgba(255, 152, 0, 0.1); border-color: rgba(255, 152, 0, 0.2); }
+    </style>
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob" style="top: 10%; left: 10%;"></div>
+        <div class="blob" style="bottom: 10%; right: 10%; animation-delay: -5s;"></div>
+    </div>
+
+    <div class="login-card">
+        <h1>AttendEase</h1>
+        <p>Sign in with your username and password</p>
+
+        <div class="input-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="your username" autocomplete="username" required>
+        </div>
+
+        <div class="input-group">
+            <label for="password">Password</label>
+            <div class="input-wrapper">
+                <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" class="password-field" required>
+                <button type="button" class="eye-toggle" onclick="togglePasswordVisibility()" title="Show/hide password" aria-label="Toggle password visibility">
+                    <svg id="eye-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    <svg id="eye-off-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <button id="login-button" class="login-btn" onclick="handleLogin()">Sign In</button>
+        <div id="errorMsg" class="error-msg"></div>
+    </div>
+
+    <script>
+        // login.html is the guaranteed landing page for a signed-out or
+        // session-expired wrapper — it must register the SW itself instead
+        // of relying on index.html/registerer.html having done it after a
+        // prior login. Without this, a device that lands here while online
+        // (expired session, first-ever run, etc.) never installs a service
+        // worker at all, so there's nothing to fall back to when it next
+        // opens offline. No-op if a SW is already registered/active.
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!navigator.onLine) {
+                attemptOfflineLogin();
+                return;
+            }
+            // The Android wrapper's offline bundle sends the user back here on
+            // reconnect. This origin's own localStorage still holds the JWT
+            // from the original online login (bundle mode runs on a different
+            // origin and never touches it), so exchange it for a real session
+            // cookie here instead of forcing a manual re-login.
+            const storedJwt = localStorage.getItem('ae_jwt');
+            if (storedJwt) {
+                try {
+                    const res = await fetch('/api/auth/session_from_jwt', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + storedJwt },
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        // Minting a session is not the same as HAVING one. Confirm the cookie
+                        // actually came back and is being sent before navigating anywhere.
+                        //
+                        // Without this check the two pages bounce off each other forever: this
+                        // one mints a session and sends the user to /register, /register asks
+                        // /api/auth/status, gets 401 because the cookie never stuck, and sends
+                        // them straight back here — roughly every 9 seconds, which on a device
+                        // is a screen that flashes endlessly and cannot be tapped. The server
+                        // log shows it plainly: session_from_jwt succeeds as a named user and
+                        // the very next auth/status is logged as anon. Some WebViews simply do
+                        // not persist the session cookie, and a redirect loop is the worst
+                        // possible way to find that out.
+                        let sessionUsable = false;
+                        try {
+                            const check = await fetch('/api/auth/status', { cache: 'no-store' });
+                            sessionUsable = check.ok;
+                        } catch (e) { sessionUsable = false; }
+
+                        if (sessionUsable) {
+                            localStorage.setItem('loggedIn', 'true');
+                            localStorage.setItem('role', data.role);
+                            window.location.href = data.role === 'host' ? '/' : '/register';
+                            return;
+                        }
+
+                        // Cookie is not sticking. Stop here with the form on screen and a real
+                        // explanation, rather than handing the user back to a page that will
+                        // only return them. Clearing the flags also stops attemptOfflineLogin()
+                        // below from starting the same loop from the other end.
+                        localStorage.removeItem('ae_jwt');
+                        localStorage.removeItem('loggedIn');
+                        const em = document.getElementById('errorMsg');
+                        if (em) {
+                            em.className = 'error-msg';
+                            em.style.display = 'block';
+                            em.textContent = 'Signed in, but this browser is not keeping the session '
+                                + 'cookie, so the app cannot stay logged in. Please sign in below. '
+                                + 'If it keeps happening, use the Unified app instead of the wrapper.';
+                        }
+                        return;
+                    }
+                    localStorage.removeItem('ae_jwt');
+                } catch (e) {}
+            }
+            try {
+                const res = await fetch('/api/auth/status');
+                if (!res.ok && res.status !== 401) throw new Error("Server error");
+            } catch (e) {
+                attemptOfflineLogin();
+            }
+        });
+
+        function attemptOfflineLogin() {
+            if (localStorage.getItem('loggedIn') === 'true') {
+                const role = localStorage.getItem('role') || 'registerer';
+                const user = localStorage.getItem('username') || 'Unknown';
+                const errorMsg = document.getElementById('errorMsg');
+                errorMsg.className = 'error-msg warn';
+                errorMsg.style.display = 'block';
+                errorMsg.innerHTML = `Offline mode — resuming as <b>${user}</b>...`;
+                setTimeout(() => {
+                    window.location.href = role === 'host' ? '/' : '/register';
+                }, 1500);
+            }
+        }
+
+        function togglePasswordVisibility() {
+            const input = document.getElementById('password');
+            const eyeIcon = document.getElementById('eye-icon');
+            const eyeOffIcon = document.getElementById('eye-off-icon');
+            const isHidden = input.type === 'password';
+            input.type = isHidden ? 'text' : 'password';
+            eyeIcon.style.display = isHidden ? 'none' : '';
+            eyeOffIcon.style.display = isHidden ? '' : 'none';
+        }
+
+        async function tryLogin(username, password) {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
+            const ct = res.headers.get('content-type') || '';
+            if (!ct.includes('application/json')) {
+                throw new Error('__retry__');
+            }
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || data.message || 'Login failed');
+            }
+            return data;
+        }
+
+        async function handleLogin() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMsg');
+            const button = document.getElementById('login-button');
+
+            if (!username) {
+                showError('Username is required.');
+                document.getElementById('username').focus();
+                return;
+            }
+            if (!password) {
+                showError('Password is required.');
+                document.getElementById('password').focus();
+                return;
+            }
+
+            errorMsg.style.display = 'none';
+            button.disabled = true;
+            button.textContent = 'Signing in...';
+
+            let data;
+            try {
+                data = await tryLogin(username, password);
+            } catch (e) {
+                if (e.message === '__retry__') {
+                    await new Promise(r => setTimeout(r, 1200));
+                    try {
+                        data = await tryLogin(username, password);
+                    } catch (e2) {
+                        showError('Server busy — please try again in a moment.');
+                        resetButton();
+                        return;
+                    }
+                } else {
+                    showError(e.message || 'Login failed. Check your credentials.');
+                    resetButton();
+                    return;
+                }
+            }
+
+            try {
+                if (data.status === 'approved') {
+                    localStorage.setItem('loggedIn', 'true');
+                    localStorage.setItem('username', username);
+                    localStorage.setItem('role', data.role);
+                    if (data.jwt) localStorage.setItem('ae_jwt', data.jwt);
+                    bridgeToLauncherOrigin(data);
+                    window.location.href = data.role === 'host' ? '/' : '/register';
+                } else if (data.status === 'pending') {
+                    window.location.href = '/waiting_approval';
+                } else {
+                    showError(data.error || data.message || 'Login failed. Check your credentials.');
+                    resetButton();
+                }
+            } catch (err) {
+                showError(err.message || 'Login failed.');
+                resetButton();
+            }
+        }
+
+        // Relay the JWT + centre info into the Capacitor launcher's own
+        // origin (via a hidden iframe) so the offline bundle — which runs on
+        // that separate local origin and never sees this page's localStorage
+        // or session cookie — can still resolve centre/roster data when
+        // opened offline. No-ops harmlessly on a plain browser (the iframe
+        // just fails to load a nonexistent local server).
+        function bridgeToLauncherOrigin(loginData) {
+            try {
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                const params = new URLSearchParams({
+                    jwt: loginData.jwt || '',
+                    server: window.location.origin,
+                    centre_id: loginData.centre_id || '',
+                    centre_name: loginData.centre_name || '',
+                });
+                iframe.src = 'http://localhost/bridge.html?' + params.toString();
+                document.body.appendChild(iframe);
+                setTimeout(() => iframe.remove(), 5000);
+            } catch (e) {}
+        }
+
+        function showError(msg) {
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.className = 'error-msg';
+            errorMsg.textContent = msg;
+            errorMsg.style.display = 'block';
+        }
+
+        function resetButton() {
+            const button = document.getElementById('login-button');
+            button.disabled = false;
+            button.textContent = 'Sign In';
+        }
+
+        // Show URL-param messages (e.g. ?disabled=1)
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('disabled') === '1') {
+                showError('This account is disabled. Contact an administrator.');
+            }
+        })();
+
+        // Enter on either field triggers login
+        ['username', 'password'].forEach(id => {
+            document.getElementById(id).addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleLogin();
+            });
+        });
+    </script>
+</body>
+</html>

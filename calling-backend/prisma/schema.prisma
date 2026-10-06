@@ -1,0 +1,964 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  CALLER
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
+enum CentreAllowedCategory {
+  youth
+  congregation
+  both
+}
+
+enum CentreType {
+  youth_only
+  youth_and_congregation
+}
+
+enum Category {
+  youth
+  congregation
+}
+
+enum RegistrationStage {
+  registered
+  calling_active
+  followup_active
+  attended_unassigned
+  batch_calling
+  sent_back_to_owner
+  removed
+  archived
+}
+
+enum ActiveQueue {
+  none
+  calling
+  followup
+  my_attendance
+  batch_calling
+  removed
+  archived
+}
+
+enum AssignmentStatus {
+  active
+  done
+  expired
+}
+
+enum CallType {
+  calling
+  followup
+  attendance_conversion_call
+  batch_calling
+}
+
+enum AssignmentSource {
+  normal_calling
+  followup_calling
+  batch_calling_future
+}
+
+enum MyAttendanceStatus {
+  active
+  batch_requested
+  closed
+}
+
+enum BatchMoveRequestStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+enum BatchCallingAssignmentMode {
+  manual
+  random
+}
+
+enum BatchCallingAssignmentStatus {
+  active
+  done
+  expired
+  cancelled
+}
+
+enum SessionCampaignStatus {
+  active
+  closed
+  completed
+  done
+}
+
+// Distinguishes how a session entered the calling system:
+//   called            — centre admin created a calling campaign for it (call → then attendance)
+//   direct_attendance — attendance was marked with no prior calling campaign; auto-created and
+//                       flagged so it stays "in the system" but is clearly not a called session
+enum SessionCampaignKind {
+  called
+  direct_attendance
+}
+
+enum SessionCallStatus {
+  pending
+  called
+  will_attend
+  wont_attend
+  no_answer
+  // The person ANSWERED and asked to be called on a later date. Distinct from `called`
+  // (which covers "Call back later / Busy" — the phone was not picked up). A deferral is a
+  // positive signal, so it is excluded from the absence tally in reevaluatePersonForBatch.
+  deferred
+  // Answered and asked to be called back, no date given. Positive (creates a follow-up, never
+  // strikes) but deliberately NOT will_attend — they have not said they are coming, so counting
+  // them as predicted attendees would overstate every session forecast.
+  call_back_later
+  attended
+}
+
+enum NotificationType {
+  attendance_matched
+  calling_assigned
+  batch_request_created
+  batch_request_approved
+  batch_assigned
+  followup_assigned
+  sent_back_to_original
+  user_request_created
+  password_sync_failed
+}
+
+enum FollowupStatus {
+  active
+  closed
+}
+
+enum DropdownContext {
+  calling
+  followup
+  my_attendance
+  batch_calling
+  removed_reuse
+}
+
+enum DropdownCategoryScope {
+  youth
+  congregation
+  both
+}
+
+enum ResponseSentiment {
+  positive
+  negative
+  not_reached
+}
+
+enum AnsweredScope {
+  answered
+  not_answered
+  both
+}
+
+enum DropdownAction {
+  move_to_followup
+  continue_calling
+  // Person answered and asked to be rung back, with no date named. Counts as a POSITIVE
+  // response: it creates a follow-up and does NOT strike. Distinct from move_to_followup,
+  // which asserts they said they WILL come — that would inflate attendance predictions.
+  followup_callback
+  // Person answered and asked for a later date. Stamps BatchMember.snoozeUntil from the
+  // option's deferDays, hides them from the live queue until then, and does NOT strike them.
+  defer_calling
+  stay_in_followup
+  remove_from_running
+  mark_invalid
+  archive
+  restore
+  reassign_calling
+  request_move_to_batch
+  move_to_batch_calling
+  send_back_to_original_caller
+  assign_to_online_team
+  pause_personal_followup
+  close_from_my_attendance
+  move_to_another_batch
+  keep_in_batch_calling
+}
+
+// ─────────────────────────────────────────────────────────────
+// CENTRE (own — source of truth for centre metadata in CB)
+// ─────────────────────────────────────────────────────────────
+
+model CentreConfig {
+  id                    Int        @id @default(autoincrement())
+  centreId              Int?       @unique @map("centre_id")
+  centreName            String     @map("centre_name")
+  centreType            CentreType @map("centre_type")
+  callingActiveDays     Int        @map("calling_active_days")
+  attendanceSheetId     String     @map("attendance_sheet_id")
+  attendanceSheetLocked Boolean    @default(false) @map("attendance_sheet_locked")
+  summarySheetName      String     @default("Summary") @map("summary_sheet_name")
+  attendanceWebappUrl   String     @map("attendance_webapp_url")
+  enabledTabsModules    Json?      @map("enabled_tabs_modules")
+  dropdownSettings      Json?      @map("dropdown_settings")
+  attendanceSettings    Json?      @map("attendance_settings")
+  poolSettings          Json?      @map("pool_settings")
+  permissionSettings    Json?      @map("permission_settings")
+  uiLayoutSettings      Json?      @map("ui_layout_settings")
+  customTabsModules     Json?      @map("custom_tabs_modules")
+  createdAt             DateTime   @default(now()) @map("created_at")
+  updatedAt             DateTime   @updatedAt @map("updated_at")
+
+  centre Centre? @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@map("centre_config")
+}
+
+model Centre {
+  id                  Int                   @id @default(autoincrement())
+  name                String
+  code                String                @unique
+  allowedCategories   CentreAllowedCategory @map("allowed_categories")
+  isActive            Boolean               @default(true) @map("is_active")
+  // Lifecycle: active | inactive | archived  (D9)
+  status              String                @default("active")
+  // Category enablement (pushed from AttendEase or set via centre-config UI)
+  enabledYouth        Boolean               @default(true) @map("enabled_youth")
+  enabledCongregation Boolean               @default(true) @map("enabled_congregation")
+  // Grace-period archival tracking (D9)
+  attendeaseStatus    String?               @map("attendease_status")
+  inactiveSince       DateTime?             @map("inactive_since")
+  lastSyncedAt        DateTime?             @map("last_synced_at")
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+
+  users                   User[]
+  centreAccess            UserCentreAccess[]
+  registrations           Registration[]
+  callingAssignments      CallingAssignment[]
+  callAttempts            CallAttempt[]
+  followups               Followup[]
+  myAttendances           MyAttendance[]
+  batchMoveRequests       BatchMoveRequest[]
+  batchMembers            BatchMember[]
+  batches                 Batch[]
+  sessions                Session[]
+  batchCallingAssignments BatchCallingAssignment[]
+  sessionCampaigns        SessionCampaign[]
+  dropdownOptions         DropdownOption[]
+  statsSnapshots          CentreStatsSnapshot[]
+  stats                   CentreStat[]
+  config                  CentreConfig?
+
+  @@index([isActive])
+  @@index([status])
+  @@map("centres")
+}
+
+// ─────────────────────────────────────────────────────────────
+// USERS (own)
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id                     Int            @id @default(autoincrement())
+  name                   String
+  mobile                 String         @unique
+  role                   UserRole
+  approvalStatus         ApprovalStatus @default(pending) @map("approval_status")
+  isActive               Boolean        @default(false) @map("is_active")
+  attendanceSystemAccess Boolean        @default(false) @map("attendance_system_access")
+  passwordHash           String?        @map("password_hash")
+  mustChangePassword     Boolean        @default(true) @map("must_change_password")
+  passwordUpdatedAt      DateTime?      @map("password_updated_at")
+  centreId               Int?           @map("centre_id")
+  createdAt              DateTime       @default(now()) @map("created_at")
+
+  permissions                       UserPermission[]
+  callAttempts                      CallAttempt[]            @relation("CallAttemptCaller")
+  assignments                       CallingAssignment[]      @relation("AssignedToUser")
+  originalCallers                   Registration[]           @relation("OriginalCaller")
+  firstConnectedRegistrations       Registration[]           @relation("FirstConnectedBy")
+  relationshipOwnedRegistrations    Registration[]           @relation("RelationshipOwner")
+  currentAssignedRegistrations      Registration[]           @relation("CurrentAssignedCaller")
+  currentBatchRegistrations         Registration[]           @relation("CurrentBatchCaller")
+  earlierManagedRegistrations       Registration[]           @relation("EarlierManagedBy")
+  lastHandledRegistrations          Registration[]           @relation("LastHandler")
+  followups                         Followup[]               @relation("FollowupOwnerCaller")
+  myAttendances                     MyAttendance[]           @relation("MyAttendanceOwnerCaller")
+  batchMoveRequestsRequested        BatchMoveRequest[]       @relation("BatchMoveRequestedBy")
+  batchMoveRequestsOriginal         BatchMoveRequest[]       @relation("BatchMoveOriginalCaller")
+  batchCallingAssignmentsAssignedTo BatchCallingAssignment[] @relation("BatchCallingAssignedTo")
+  batchCallingAssignmentsAssignedBy BatchCallingAssignment[] @relation("BatchCallingAssignedBy")
+  sessionCampaignsCreated           SessionCampaign[]        @relation("SessionCampaignCreator")
+  sessionCallAssignments            SessionCallAssignment[]
+  sessionCallAssignmentsRemoved     SessionCallAssignment[]  @relation("SessionCallAssignmentRemovedBy")
+  sessionCallerNotesForCaller       SessionCallerNote[]      @relation("SessionCallerNoteCaller")
+  sessionCallerNotesWritten         SessionCallerNote[]      @relation("SessionCallerNoteUpdatedBy")
+  notifications                     Notification[]           @relation("UserNotifications")
+  centreAccess                      UserCentreAccess[]
+  centre                            Centre?                  @relation(fields: [centreId], references: [id], onDelete: SetNull)
+
+  @@index([centreId])
+  @@map("users")
+}
+
+model UserPermission {
+  id            Int     @id @default(autoincrement())
+  userId        Int     @map("user_id")
+  permissionKey String  @map("permission_key")
+  isEnabled     Boolean @default(true) @map("is_enabled")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionKey])
+  @@index([permissionKey, isEnabled])
+  @@map("user_permissions")
+}
+
+// Per-centre access — one row per (user, centre) pair.
+// Global permissions live in UserPermission; centre-level admin flag lives here.
+model UserCentreAccess {
+  id           Int       @id @default(autoincrement())
+  userId       Int       @map("user_id")
+  centreId     Int       @map("centre_id")
+  isAdmin      Boolean   @default(false) @map("is_admin")
+  displayName  String?   @map("display_name")
+  lastSeenAt   DateTime? @map("last_seen_at")
+  lastSyncedAt DateTime? @map("last_synced_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  centre Centre @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, centreId])
+  @@index([centreId])
+  @@map("user_centre_access")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MIRROR TABLES (synced FROM AttendEase, read-mostly)
+// ─────────────────────────────────────────────────────────────
+
+// Mirrors AttendEase's batch/group concept (NOT calling batches).
+// Used by the batch membership service and reconcile job.
+// PK = AttendEase batch.id (not auto-increment).
+model Batch {
+  id           Int      @id // AttendEase batch.id
+  centreId     Int      @map("centre_id")
+  category     String // "youth" | "congregation"
+  name         String
+  isDefault    Boolean  @default(false) @map("is_default")
+  status       String   @default("active") // "active" | "archived"
+  lastSyncedAt DateTime @map("last_synced_at")
+
+  centre           Centre            @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  members          BatchMember[]
+  sessions         Session[]
+  sessionCampaigns SessionCampaign[]
+
+  @@unique([centreId, category, name])
+  @@index([centreId, category, status])
+  @@map("batches")
+}
+
+// Mirrors AttendEase sessions. Used by reconcile + lazy-create.
+// PK = AttendEase session_id (string slug).
+model Session {
+  sessionId    String    @id @map("session_id") // AttendEase session_id
+  displayName  String    @map("display_name")
+  batchId      Int       @map("batch_id")
+  centreId     Int       @map("centre_id")
+  category     String
+  date         DateTime?
+  status       String    @default("active")
+  lastSyncedAt DateTime  @map("last_synced_at")
+
+  centre Centre @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  batch  Batch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([centreId])
+  @@map("sessions")
+}
+
+// ─────────────────────────────────────────────────────────────
+// DOMAIN TABLES (own — Calling Backend is source of truth)
+// ─────────────────────────────────────────────────────────────
+
+model Registration {
+  id                      Int               @id @default(autoincrement())
+  name                    String
+  mobile                  String
+  normalizedMobile        String            @map("normalized_mobile")
+  centreId                Int               @map("centre_id")
+  address                 String?
+  occupation              String?
+  category                Category
+  currentStage            RegistrationStage @default(registered) @map("current_stage")
+  activeQueue             ActiveQueue       @default(none) @map("active_queue")
+  originalCallerId        Int?              @map("original_caller_id")
+  firstConnectedBy        Int?              @map("first_connected_by")
+  relationshipOwnerId     Int?              @map("relationship_owner_id")
+  lastHandledBy           Int?              @map("last_handled_by")
+  currentAssignedCallerId Int?              @map("current_assigned_caller_id")
+  currentBatchCallerId    Int?              @map("current_batch_caller_id")
+  earlierManagedBy        Int?              @map("earlier_managed_by")
+  createdAt               DateTime          @default(now()) @map("created_at")
+
+  originalCaller        User?               @relation("OriginalCaller", fields: [originalCallerId], references: [id], onDelete: SetNull)
+  firstConnectedByUser  User?               @relation("FirstConnectedBy", fields: [firstConnectedBy], references: [id], onDelete: SetNull)
+  relationshipOwner     User?               @relation("RelationshipOwner", fields: [relationshipOwnerId], references: [id], onDelete: SetNull)
+  lastHandler           User?               @relation("LastHandler", fields: [lastHandledBy], references: [id], onDelete: SetNull)
+  currentAssignedCaller User?               @relation("CurrentAssignedCaller", fields: [currentAssignedCallerId], references: [id], onDelete: SetNull)
+  currentBatchCaller    User?               @relation("CurrentBatchCaller", fields: [currentBatchCallerId], references: [id], onDelete: SetNull)
+  earlierManager        User?               @relation("EarlierManagedBy", fields: [earlierManagedBy], references: [id], onDelete: SetNull)
+  centre                Centre              @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  assignments           CallingAssignment[]
+  callAttempts          CallAttempt[]
+  followup              Followup?
+  removedRecord         RemovedRecord?
+  myAttendance          MyAttendance?
+  batchMoveRequests     BatchMoveRequest[]
+  notifications         Notification[]
+
+  // Same mobile can register at multiple centres independently (D6)
+  @@unique([normalizedMobile, centreId])
+  @@index([centreId, category, currentStage, activeQueue])
+  @@map("registrations")
+}
+
+model CallingAssignment {
+  id               Int              @id @default(autoincrement())
+  registrationId   Int              @map("registration_id")
+  assignedToUserId Int              @map("assigned_to_user_id")
+  centreId         Int              @map("centre_id")
+  assignedBy       String           @map("assigned_by")
+  startDate        DateTime         @map("start_date")
+  endDate          DateTime         @map("end_date")
+  status           AssignmentStatus
+  assignmentSource AssignmentSource @default(normal_calling) @map("assignment_source")
+
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  assignedToUser User         @relation("AssignedToUser", fields: [assignedToUserId], references: [id], onDelete: Restrict)
+  centre         Centre       @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@index([status, endDate])
+  @@index([registrationId, status])
+  @@index([centreId])
+  @@map("calling_assignments")
+}
+
+model CallAttempt {
+  id             Int      @id @default(autoincrement())
+  registrationId Int      @map("registration_id")
+  callerId       Int      @map("caller_id")
+  centreId       Int      @map("centre_id")
+  callType       CallType @map("call_type")
+  dropdownValue  String   @map("dropdown_value")
+  remark         String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+  // WHICH calling session this response belongs to. A calling session may hold only ONE
+  // response per person: if the caller scrolls back and changes their answer, that single
+  // row is updated in place instead of a second one being stacked on top (which made the
+  // person show two different "last responses" for the same day).
+  // NULL for general-pool calls, which have no session. SQLite treats NULLs as distinct in
+  // a unique index, so those stay append-only and are unaffected.
+  campaignId     Int?     @map("campaign_id")
+  // Links history to the OPTION so a rename cannot orphan its meaning: sentiment resolves through
+  // the option row rather than by matching the label text stored in dropdownValue.
+  // Deliberately NOT a Prisma relation — SQLite cannot add a FOREIGN KEY via ALTER TABLE, and
+  // `prisma migrate dev` is permanently broken in this repo, so every migration is hand-written.
+  dropdownId     Int?     @map("dropdown_id")
+  // Did the person pick up (step 1 of the caller's two-step capture). NULL for pre-existing rows.
+  answered       Boolean?
+
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  caller       User         @relation("CallAttemptCaller", fields: [callerId], references: [id], onDelete: Restrict)
+  centre       Centre       @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  campaign     SessionCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@unique([registrationId, campaignId])
+  @@index([registrationId, callType])
+  @@index([centreId])
+  @@index([campaignId])
+  @@map("call_attempts")
+}
+
+enum FollowupKind {
+  will_attend     // said they are coming — ring to confirm before class
+  call_back_later // asked to be rung back — not yet a yes
+}
+
+model Followup {
+  id             Int            @id @default(autoincrement())
+  registrationId Int            @unique @map("registration_id")
+  ownerCallerId  Int            @map("owner_caller_id")
+  centreId       Int            @map("centre_id")
+  status         FollowupStatus
+  // Set when the originating calling session is retrieved/closed: blocks further edits to this
+  // follow-up (markFollowupDone) but must NOT hide it from getFollowupList — the person may still
+  // need a confirmation call before class. Cleared automatically once attendance is confirmed
+  // (the follow-up is closed outright at that point, not merely unlocked).
+  isLocked       Boolean        @default(false) @map("is_locked")
+  lockedReason   String?        @map("locked_reason")
+  // WHICH class this follow-up is for. A follow-up means "ring them again before THIS class to
+  // confirm" — without the link there was no date to measure "before" against, so a follow-up could
+  // outlive its class indefinitely and keep the person parked in followup_active, invisible to
+  // assignment for every later session. Nullable: rows created before this existed have no link and
+  // fall back to an age-based expiry.
+  campaignId     Int?           @map("campaign_id")
+  // Why this follow-up exists. Drives the separate section header in the caller's Follow-ups tab
+  // so a "ring me back" is never read as a confirmed yes.
+  kind           FollowupKind   @default(will_attend)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  registration Registration     @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  ownerCaller  User             @relation("FollowupOwnerCaller", fields: [ownerCallerId], references: [id], onDelete: Restrict)
+  centre       Centre           @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  // SetNull, not Cascade: deleting a session must not delete the follow-up record of a real
+  // conversation — it just loses its class link and expires on age instead.
+  campaign     SessionCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([centreId, status])
+  @@index([status])
+  @@index([campaignId])
+  @@map("followups")
+}
+
+model DropdownOption {
+  id        Int                   @id @default(autoincrement())
+  // NULL = global default; non-null = centre-specific override (D7)
+  centreId  Int?                  @map("centre_id")
+  label     String
+  context   DropdownContext
+  category  DropdownCategoryScope @default(both)
+  sortOrder Int                   @default(0) @map("sort_order")
+  isActive  Boolean               @default(true) @map("is_active")
+  // How many days forward a defer_calling option pushes the person. Lives on the option (not
+  // parsed out of the label) so a centre can retitle "Call next week" in its own words without
+  // silently changing the interval — the same reason actions are mapped and not keyword-guessed.
+  // NULL for every non-deferral option.
+  deferDays Int?                  @map("defer_days")
+  // Set when this centre-specific row REPLACES a global one for this centre. Suppression is by id,
+  // not by label: the old label-matching dedup broke the moment a centre renamed its version, since
+  // the global then no longer matched and callers saw both. An override with isActive=false is how a
+  // centre hides a shared option for itself without touching the row every other centre reads.
+  overridesId Int? @map("overrides_id")
+
+  // Declared meaning. Never inferred from the label — see src/lib/response-rules.ts. The old
+  // regex derivation scored "No incoming" as will_attend, i.e. a person who had blocked incoming
+  // calls was recorded as having confirmed attendance.
+  sentiment              ResponseSentiment @default(not_reached)
+  countsAsStrike         Boolean           @default(false) @map("counts_as_strike")
+  // NULL = never. N = remove after N of these in a row. Only meaningful when countsAsStrike.
+  removeAfterConsecutive Int?              @map("remove_after_consecutive")
+  // Which branch of the caller's "Did they pick the call?" step this appears under.
+  answeredScope          AnsweredScope     @default(both) @map("answered_scope")
+  // Protects essentials (Wrong number, Not interested) from deletion.
+  isSystem               Boolean           @default(false) @map("is_system")
+
+  centre       Centre?          @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  mapping      DropdownMapping?
+  overrides    DropdownOption?  @relation("DropdownOverride", fields: [overridesId], references: [id], onDelete: Cascade)
+  overriddenBy DropdownOption[] @relation("DropdownOverride")
+  aliases      DropdownOptionAlias[]
+
+  @@unique([centreId, label, context, category])
+  // At most one override per centre per shared option. NULLs count as distinct in SQLite, so this
+  // does not constrain ordinary (non-override) rows.
+  @@unique([centreId, overridesId])
+  @@index([centreId, context, category, isActive])
+  @@index([overridesId])
+  @@map("dropdown_options")
+}
+
+model DropdownMapping {
+  id         Int            @id @default(autoincrement())
+  dropdownId Int            @unique @map("dropdown_id")
+  action     DropdownAction
+
+  dropdown DropdownOption @relation(fields: [dropdownId], references: [id], onDelete: Cascade)
+
+  @@map("dropdown_mappings")
+}
+
+/// Every name a response has EVER been called, so a late-arriving outcome carrying an old name
+/// still finds its option instead of falling through to the keyword guesser.
+///
+/// Why this is needed: saving an outcome is instant and queues offline, and the app sends the
+/// label as text. A caller can be out of signal for hours while an admin renames the very response
+/// sitting in their outbox. Without this table that queued outcome matches nothing, and the server
+/// falls back to guessing the meaning from the words — the exact behaviour the response-semantics
+/// work existed to delete.
+///
+/// THE HISTORY IS FOR FINDING THE OPTION, NEVER FOR APPLYING OLD BEHAVIOUR. Once the row is found,
+/// its CURRENT action/sentiment/defer_days are what get applied. Replaying yesterday's behaviour
+/// would mean an admin's correction silently did not take effect for anyone whose phone was
+/// offline when they made it — the opposite of what a correction is for. Only the NAME is
+/// historical; the meaning is always live.
+model DropdownOptionAlias {
+  id         Int             @id @default(autoincrement())
+  dropdownId Int             @map("dropdown_id")
+  /// The name this option used to carry. Never the current one — that lives on the option itself.
+  label      String
+  /// Denormalised from the option so a lookup can filter without joining, and so the row survives
+  /// as a readable audit line ("this centre used to call it X") independent of the option.
+  context    DropdownContext
+  centreId   Int?            @map("centre_id")
+  changedAt  DateTime        @default(now()) @map("changed_at")
+  /// Who renamed it, as the user id in text form. Nullable: a seed or maintenance script runs
+  /// outside any request and has no user to attribute.
+  changedBy  String?         @map("changed_by")
+
+  dropdown DropdownOption @relation(fields: [dropdownId], references: [id], onDelete: Cascade)
+
+  // The lookup index: an arriving label is matched against every past name in one hit.
+  @@index([label, context])
+  @@index([dropdownId, changedAt])
+  @@map("dropdown_option_aliases")
+}
+
+model RemovedRecord {
+  id             Int      @id @default(autoincrement())
+  registrationId Int      @unique @map("registration_id")
+  reason         String
+  removedAt      DateTime @default(now()) @map("removed_at")
+
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@map("removed_records")
+}
+
+model MyAttendance {
+  id             Int                @id @default(autoincrement())
+  registrationId Int                @unique @map("registration_id")
+  ownerCallerId  Int                @map("owner_caller_id")
+  centreId       Int                @map("centre_id")
+  status         MyAttendanceStatus @default(active)
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  ownerCaller  User         @relation("MyAttendanceOwnerCaller", fields: [ownerCallerId], references: [id], onDelete: Restrict)
+  centre       Centre       @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@index([ownerCallerId, status])
+  @@index([centreId, status])
+  @@map("my_attendance")
+}
+
+model BatchMoveRequest {
+  id                Int                    @id @default(autoincrement())
+  registrationId    Int                    @map("registration_id")
+  requestedByUserId Int                    @map("requested_by_user_id")
+  originalCallerId  Int                    @map("original_caller_id")
+  centreId          Int                    @map("centre_id")
+  status            BatchMoveRequestStatus @default(pending)
+  requestedAt       DateTime               @default(now()) @map("requested_at")
+  resolvedAt        DateTime?              @map("resolved_at")
+
+  registration    Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  requestedByUser User         @relation("BatchMoveRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  originalCaller  User         @relation("BatchMoveOriginalCaller", fields: [originalCallerId], references: [id], onDelete: Restrict)
+  centre          Centre       @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@index([status, requestedAt])
+  @@index([registrationId])
+  @@index([centreId, status])
+  @@map("batch_move_requests")
+}
+
+// ─────────────────────────────────────────────────────────────
+// BATCH MEMBERSHIP (core — CB is source of truth)
+// ─────────────────────────────────────────────────────────────
+
+// Tracks which person (by mobile) is a member of which AttendEase batch.
+// One row per active membership. soft-delete via removedAt.
+// Application enforces: only one active row per (centreId, mobile, batchId).
+model BatchMember {
+  id        Int       @id @default(autoincrement())
+  centreId  Int       @map("centre_id")
+  category  String // "youth" | "congregation"
+  batchId   Int       @map("batch_id")
+  mobile    String // cross-reference to registration (no FK — cross-system)
+  joinedAt  DateTime  @map("joined_at")
+  removedAt DateTime? @map("removed_at")
+  changedBy String    @map("changed_by") // username
+  changedAt DateTime  @map("changed_at")
+  // Deferral ("call me next week/month"). Lives HERE on the roster rather than on
+  // SessionCallAssignment because assignments are scoped to one campaign and the caller queue only
+  // reads campaigns with status=active — a one-month deferral outlives the session it was set in and
+  // would vanish. Held on the batch member, the person simply reappears in the roster once the date
+  // passes and the next session picks them up. Evaluated at read time, so there is no cron to fail.
+  snoozeUntil DateTime? @map("snooze_until")
+  // Consecutive deferrals with no other outcome in between. Reset by any non-deferral outcome.
+  // Guards against someone deferring forever and never reaching the absence threshold.
+  snoozeCount Int       @default(0) @map("snooze_count")
+  // registration_auto | registration_manual | attendance_evict | manual_add | manual_remove | backfill
+  source    String
+
+  centre                 Centre                  @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  batch                  Batch                   @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  audit                  BatchMemberAudit[]
+  batchCallingAssignment BatchCallingAssignment?
+  sessionCallAssignments SessionCallAssignment[]
+
+  @@index([centreId, category, batchId, removedAt])
+  @@index([centreId, mobile, removedAt])
+  @@map("batch_members")
+}
+
+model BatchMemberAudit {
+  id            Int      @id @default(autoincrement())
+  batchMemberId Int      @map("batch_member_id")
+  // create | remove | re_add | backfill
+  action        String
+  byUser        String   @map("by_user")
+  atTime        DateTime @map("at_time")
+  reason        String?
+  prevState     String?  @map("prev_state") // JSON snapshot
+  newState      String?  @map("new_state") // JSON snapshot
+
+  batchMember BatchMember @relation(fields: [batchMemberId], references: [id], onDelete: Cascade)
+
+  @@index([batchMemberId])
+  @@map("batch_member_audit")
+}
+
+model BatchCallingAssignment {
+  id               Int                          @id @default(autoincrement())
+  batchMemberId    Int                          @unique @map("batch_member_id")
+  assignedToUserId Int                          @map("assigned_to_user_id")
+  assignedByUserId Int                          @map("assigned_by_user_id")
+  centreId         Int                          @map("centre_id")
+  assignmentMode   BatchCallingAssignmentMode   @map("assignment_mode")
+  status           BatchCallingAssignmentStatus @default(active)
+  startDate        DateTime                     @map("start_date")
+  endDate          DateTime                     @map("end_date")
+  createdAt        DateTime                     @default(now()) @map("created_at")
+  updatedAt        DateTime                     @updatedAt @map("updated_at")
+
+  batchMember    BatchMember @relation(fields: [batchMemberId], references: [id], onDelete: Cascade)
+  assignedToUser User        @relation("BatchCallingAssignedTo", fields: [assignedToUserId], references: [id], onDelete: Restrict)
+  assignedByUser User        @relation("BatchCallingAssignedBy", fields: [assignedByUserId], references: [id], onDelete: Restrict)
+  centre         Centre      @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@index([assignedToUserId, status])
+  @@index([status, endDate])
+  @@index([centreId, status])
+  @@map("batch_calling_assignments")
+}
+
+// ─────────────────────────────────────────────────────────────
+// NOTIFICATIONS + STATS
+// ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id             Int              @id @default(autoincrement())
+  userId         Int              @map("user_id")
+  registrationId Int?             @map("registration_id")
+  title          String
+  message        String
+  type           NotificationType
+  isRead         Boolean          @default(false) @map("is_read")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  user         User          @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  registration Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead, createdAt])
+  @@index([registrationId])
+  @@map("notifications")
+}
+
+// Optional stats cache for the host dashboard (Phase 8).
+model CentreStatsSnapshot {
+  id         Int      @id @default(autoincrement())
+  centreId   Int      @map("centre_id")
+  snapshotAt DateTime @map("snapshot_at")
+  statKey    String   @map("stat_key")
+  statValue  Int      @map("stat_value")
+
+  centre Centre @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@index([centreId, statKey, snapshotAt])
+  @@map("centre_stats_snapshots")
+}
+
+// Live, event-driven projection of per-centre counters (the "read model").
+// Updated incrementally inside the same DB transaction as the domain write that
+// changes a count (see src/lib/projections.ts). The UI reads CURRENT values from
+// here instead of running COUNT(*) over the source tables on every page load.
+//
+// Key-value by design: adding a new counter = a new statKey, never a migration.
+// statKey convention: "<metric>" or "<metric>:<category>" e.g. "new_registrations:youth".
+// `value` is the cached count. `version` increments on every write (drift detection /
+// optimistic concurrency). `reconciledAt` = last time this row was recomputed from source.
+model CentreStat {
+  centreId     Int       @map("centre_id")
+  statKey      String    @map("stat_key")
+  value        Int       @default(0)
+  version      Int       @default(0)
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  reconciledAt DateTime? @map("reconciled_at")
+
+  centre Centre @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@id([centreId, statKey])
+  @@index([statKey])
+  @@map("centre_stats")
+}
+
+// ─────────────────────────────────────────────────────────────
+// SESSION CAMPAIGNS (planned-session calling)
+// ─────────────────────────────────────────────────────────────
+
+// A calling campaign tied to one specific planned AE session.
+// Admin creates it → splits batch members across callers → callers call before the class.
+// When attendance is marked for the session, callStatus flips to 'attended' for attendees.
+model SessionCampaign {
+  id          Int                   @id @default(autoincrement())
+  aeSessionId String                @unique @map("ae_session_id")
+  centreId    Int                   @map("centre_id")
+  batchId     Int                   @map("batch_id")
+  scheduledAt DateTime              @map("scheduled_at")
+  status      SessionCampaignStatus @default(active)
+  kind        SessionCampaignKind   @default(called)
+  // Admin-authored WhatsApp message for THIS calling session, set in Directory Setup. The caller's
+  // WhatsApp button opens the chat with this text already filled in, rendered per person. NULL (and
+  // empty, which is stored as NULL) means no prefill — the button behaves exactly as it always has.
+  whatsappMessage String?           @map("whatsapp_message")
+  createdById Int                   @map("created_by_id")
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  centre      Centre                  @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  batch       Batch                   @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  createdBy   User                    @relation("SessionCampaignCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  assignments SessionCallAssignment[]
+  callerNotes SessionCallerNote[]
+  followups   Followup[]
+  callAttempts CallAttempt[]
+
+  @@index([centreId, status])
+  @@index([scheduledAt])
+  @@map("session_campaigns")
+}
+
+// One row per batch member per session campaign — who calls whom.
+model SessionCallAssignment {
+  id            Int               @id @default(autoincrement())
+  campaignId    Int               @map("campaign_id")
+  batchMemberId Int               @map("batch_member_id")
+  callerId      Int               @map("caller_id")
+  callStatus    SessionCallStatus @default(pending) @map("call_status")
+  calledAt      DateTime?         @map("called_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  outcomeLabel String? @map("outcome_label")
+
+  // Soft-remove: admin can instantly unassign a person from the caller while the campaign is
+  // still active. The row (and its outcome/history) is NEVER deleted — only excluded from every
+  // "live" view (caller queue, admin expand list, reconciliation summary) via removedAt: null.
+  removedAt   DateTime? @map("removed_at")
+  removedById Int?      @map("removed_by_id")
+
+  // ── Allotment provenance ────────────────────────────────────────────────────
+  // WHICH LIST this person was allotted from, and which press of "Assign" did it.
+  //
+  // An admin allots by filtering the pool sheet (say, "everyone who attended 8 Aug BG"), then
+  // typing row ranges. Without recording that, an allotment is just a caller with N people: the
+  // admin cannot see which list it came from, cannot get back to that list, and a caller who gets
+  // a second allotment from a DIFFERENT list has it silently merged into the first. All three were
+  // reported on 2026-08-15.
+  //
+  // allotmentKey groups the rows written by one logical allotment, so two allotments to the same
+  // caller can stay visibly separate. Null on every row written before this existed — those group
+  // under the caller alone, exactly as they always did.
+  allotmentKey    String? @map("allotment_key")
+  // What to show as the heading, e.g. "8 Aug BG · attended · rows 7–15".
+  allotmentLabel  String? @map("allotment_label")
+  // JSON snapshot of the pool filter that produced the sheet, so tapping the heading can put the
+  // screen back exactly as it was: {"batchIds":[…],"sessionIds":[…],"include":"attended","tab":0}
+  allotmentFilter String? @map("allotment_filter")
+
+  campaign    SessionCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  batchMember BatchMember     @relation(fields: [batchMemberId], references: [id], onDelete: Cascade)
+  caller      User            @relation(fields: [callerId], references: [id], onDelete: Restrict)
+  removedBy   User?           @relation("SessionCallAssignmentRemovedBy", fields: [removedById], references: [id], onDelete: SetNull)
+
+  @@unique([campaignId, batchMemberId])
+  @@index([callerId, callStatus])
+  @@index([campaignId, callStatus])
+  @@index([campaignId, allotmentKey])
+  @@map("session_call_assignments")
+}
+
+// A note an admin leaves for a specific caller about a specific calling session — shown beside
+// the session name in that caller's own "My Callings" list. One note per (campaign, caller) pair.
+model SessionCallerNote {
+  id          Int      @id @default(autoincrement())
+  campaignId  Int      @map("campaign_id")
+  callerId    Int      @map("caller_id")
+  note        String
+  updatedById Int      @map("updated_by_id")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  campaign  SessionCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  caller    User            @relation("SessionCallerNoteCaller", fields: [callerId], references: [id], onDelete: Cascade)
+  updatedBy User            @relation("SessionCallerNoteUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@unique([campaignId, callerId])
+  @@map("session_caller_notes")
+}
+
+// ─────────────────────────────────────────────────────────────
+// OUTBOX (queued cross-system writes with retry)
+// ─────────────────────────────────────────────────────────────
+
+model Outbox {
+  id          Int      @id @default(autoincrement())
+  // batch_member_change | etc.
+  kind        String
+  payload     String // JSON
+  // pending | sent | failed
+  status      String   @default("pending")
+  attempts    Int      @default(0)
+  nextAttempt DateTime @map("next_attempt")
+  lastError   String?  @map("last_error")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([status, nextAttempt])
+  @@map("outbox")
+}
+
+// ─────────────────────────────────────────────────────────────
+// DROPDOWNS (config)
+// ─────────────────────────────────────────────────────────────
+// DropdownOption, DropdownMapping defined above under domain tables.

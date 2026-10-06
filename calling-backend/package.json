@@ -1,0 +1,40 @@
+{
+  "name": "calling-management-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "prisma:generate": "prisma generate",
+    "db:init": "py -3 scripts/init-db.py",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "smoke:full": "node scripts/full-smoke-test.js",
+    "smoke:security": "node scripts/centre-security-audit.js",
+    "migrate:bootstrap-host": "tsx scripts/bootstrap-host.ts",
+    "migrate:passwords": "tsx scripts/migrate-all-users-to-password123.ts",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "sim:v2": "npx tsx scripts/simulation-harness-v2.ts",
+    "sim:v2:smoke": "npx tsx scripts/simulation-harness-v2.ts --smoke"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.8.2",
+    "better-sqlite3": "^12.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.1",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.15.3",
+    "prisma": "^6.8.2",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <!-- A new user can sit on this screen for a while and install from it.
+         See registerer.html for the rationale on each tag. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="AttendEase">
+    <title>Waiting Approval - AttendEase</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00f2fe;
+            --secondary: #4facfe;
+            --bg: #0b0e14;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --text: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            animation: fadeIn 1s ease-out;
+            max-width: 400px;
+            padding: 20px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .pulsar {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            margin: 0 auto 40px;
+            position: relative;
+            box-shadow: 0 0 30px rgba(0, 242, 254, 0.4);
+        }
+
+        .pulsar::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 50%;
+            background: inherit;
+            animation: pulse 2s infinite;
+            z-index: -1;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.5; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 2px;
+            margin-bottom: 16px;
+        }
+
+        p {
+            opacity: 0.8;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-size: 0.9rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--primary);
+        }
+
+        button {
+            margin: 10px 6px 0;
+            padding: 10px 16px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            cursor: pointer;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="pulsar"></div>
+        <h1>WAITING APPROVAL</h1>
+        <p>Your access request has been sent to the Master Dashboard. Please wait while the administrator verifies your identity.</p>
+        <p id="waiting-user-email"></p>
+        <div id="waiting-memberships"></div>
+        <div id="auth-status-message" class="status-badge">Checking status...</div>
+        <div>
+            <button onclick="checkStatus()">Refresh Status</button>
+            <button onclick="doLogout()">Sign Out</button>
+        </div>
+    </div>
+
+    <script>
+        // BUG-3 fix: use Flask /api/auth/status — no Supabase needed.
+        async function doLogout() {
+            // ae_jwt drives login.html's silent offline auto-resume — clear it
+            // too, otherwise the session cookie gets dropped but the next
+            // /login load mints a fresh one from this token and signs the
+            // user right back in.
+            localStorage.removeItem('loggedIn');
+            localStorage.removeItem('username');
+            localStorage.removeItem('role');
+            localStorage.removeItem('ae_jwt');
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/login';
+        }
+
+        async function checkStatus() {
+            try {
+                const res = await fetch('/api/auth/status');
+                if (res.status === 401) { window.location.href = '/login'; return; }
+                const data = await res.json();
+
+                document.getElementById('waiting-user-email').textContent =
+                    data.username ? `Signed in as ${data.username}` : '';
+                document.getElementById('auth-status-message').textContent = data.status || 'pending';
+
+                if (data.status === 'approved') {
+                    window.location.href = data.role === 'host' ? '/' : '/register';
+                }
+            } catch (err) {
+                console.error("Status check failed:", err);
+                document.getElementById('auth-status-message').textContent = 'Status check failed — retrying...';
+            }
+        }
+
+        // Poll every 3 seconds
+        setInterval(checkStatus, 3000);
+        checkStatus();
+    </script>
+</body>
+</html>

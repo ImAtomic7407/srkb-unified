@@ -1,0 +1,29 @@
+:root{--bg:#f0f4f8;--card:#fff;--text:#1a202c;--muted:#718096;--body:#4a5568;--accent:#3182ce;--accent-d:#2b6cb0;--warn-bg:#fffaf0;--warn:#dd6b20;--ok:#38a169;--line:#e2e8f0}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1720;--card:#1a2332;--text:#f1f5f9;--muted:#94a3b8;--body:#cbd5e1;--accent:#4299e1;--accent-d:#63b3ed;--warn-bg:#2d2218;--line:#2d3a4f}}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+header{max-width:720px;margin:0 auto;padding:20px 16px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+header a.brand{font-weight:800;color:var(--text);text-decoration:none;font-size:1.1rem}
+nav a{color:var(--muted);text-decoration:none;margin-left:16px;font-size:.9rem}
+nav a:hover{color:var(--accent)}
+main{max-width:720px;margin:0 auto;padding:28px 16px 48px}
+h1{font-size:1.8rem;margin-bottom:6px}
+.sub{color:var(--muted);margin-bottom:24px}
+.card{background:var(--card);border-radius:12px;padding:22px 24px;box-shadow:0 2px 12px rgba(0,0,0,.08);margin-bottom:16px}
+.card h2{font-size:1.15rem;margin-bottom:6px}
+.card p,.card li{color:var(--body);font-size:.92rem}
+.card p{margin-bottom:12px}
+.meta{font-size:.8rem;color:var(--muted);margin-bottom:14px}
+.btn{display:block;text-align:center;background:var(--accent);color:#fff;text-decoration:none;padding:13px 20px;border-radius:8px;font-weight:700;font-size:.95rem}
+.btn:hover{background:var(--accent-d)}
+.btn.disabled{background:#718096;pointer-events:none}
+.btn.play{background:#000;margin-top:10px}
+.status{display:inline-block;font-size:.8rem;padding:3px 10px;border-radius:99px;margin-bottom:12px;background:var(--bg);color:var(--muted)}
+.status.on{color:var(--ok)} .status.off{color:var(--warn)}
+.warn{background:var(--warn-bg);border-left:3px solid var(--warn);padding:10px 12px;border-radius:6px;font-size:.86rem;color:var(--body);margin-bottom:12px}
+ol,ul{padding-left:20px}li{margin-bottom:4px}
+.legal h2{font-size:1.1rem;margin:26px 0 8px}
+.legal p,.legal li{color:var(--body);margin-bottom:10px;font-size:.95rem}
+footer{max-width:720px;margin:0 auto;padding:0 16px 32px;color:var(--muted);font-size:.8rem;text-align:center}
+footer a{color:var(--muted)}
